@@ -77,9 +77,11 @@ func _streets(T: Truth, d: Dictionary, dn: District3D, tag: String) -> void:
 			var s: Dictionary = secs[str(sc.id)]
 			var out := bool(sc.failed) and float(sc.outQ) > 0.0
 			T.check(bool(s.dark) == out and (float(s.e) <= 0.0) == out, "%s: %s's windows %s as the engine's section says" % [tag, str(sc.id), "are dark" if out else "are lit"])
+			T.check(bool(s.lamp_on) == not out, "%s: %s's street lamps %s with its windows" % [tag, str(sc.id), "are dark" if out else "are on"])
 	var f0: Dictionary = d.feeders[1]
 	dn.set_district(d, "load", [str(f0.id)])
 	secs = dn.report().sections
+	for sc in f0.sections: T.check(not bool(secs[str(sc.id)].lamp_on), "%s: %s's lamps are dark with the open incident" % [tag, str(sc.id)])
 	for sc in f0.sections: T.check(bool(secs[str(sc.id)].dark) and float(secs[str(sc.id)].e) == 0.0, "%s: %s is dark while %s has an open incident" % [tag, str(sc.id), str(f0.id)])
 	for sc in (d.feeders[0] as Dictionary).sections: T.check(float(secs[str(sc.id)].e) > 0.0, "%s: %s on the other feeder stays lit" % [tag, str(sc.id)])
 	# the colour mode: load follows the feeder, health follows the section

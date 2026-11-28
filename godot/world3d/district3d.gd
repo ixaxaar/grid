@@ -289,7 +289,7 @@ func _build_yard(pid: String) -> void:
 		_inst(_root, _run([tw.position + (sp[1][k] as Vector3), Vector3(c.x, gy + 9.4, c.y - 14.0 + 1.0 * float(k))], 0.07, 1.2), hv, "Incomer%d_%d" % [k, int(c.x)], Vector3.ZERO, false)
 	for sx in [-hw - 6.0, hw + 6.0]: _lamp_post(Vector2(c.x + sx, c.y + 22.0))
 	for k in 2: Kit3D.flood_mast(n, Vector3((-hw + 1.0) if k == 0 else (hw - 1.0), 0.0, 19.0 if k == 0 else -19.0), Vector3.ZERO, quality, 14.0)   # 1128c
-	Kit3D.aviation(_root, tw.position + Vector3(0, 24.6, 0))
+	Kit3D.aviation(_root, tw.position + Vector3(0, 24.6, 0), quality)
 	dd.yard[pid] = {"node": n, "tanks": txs, "units": units, "pos": n.position, "shed_win": wm}
 	anchors["yard_" + pid] = Vector3(c.x, gy + 14.0, c.y)
 
@@ -383,7 +383,12 @@ func _hamlet(sid: String, a: Vector2, b: Vector2, n: int, seed_: int) -> Diction
 	var lt: OmniLight3D = null
 	if quality != "low":
 		lt = OmniLight3D.new(); lt.omni_range = 40.0; lt.omni_attenuation = 1.2; lt.light_specular = 0.2; lt.position = Vector3(c.x, ground(c.x, c.y) + 7.0, c.y); lt.light_energy = 0.0; vn.add_child(lt)
-	return {"node": vn, "mat": wm, "light": lt, "homes": n, "at": c, "pts": pts}
+	# 1128c rollout: a lamp at each end of the street, off the lane, with the province's halo and pool; dark with the street's windows (_set_street)
+	var grp := "dv_%s_%d" % [sid, seed_]
+	for sg in [-1.0, 1.0]:
+		var lp := c + dir * float(sg) * (float(per) * 6.25 + 3.0) + nrm * 3.0
+		Kit3D.street_lamp(vn, Vector3(lp.x, ground(lp.x, lp.y) - 0.1, lp.y), atan2(-nrm.x, -nrm.y), quality, grp, 6.0)
+	return {"node": vn, "mat": wm, "light": lt, "homes": n, "at": c, "pts": pts, "group": grp}
 
 func _battery(fid: String, at: Vector2, yaw: float) -> Node3D:
 	var n := Node3D.new(); n.name = "Battery_" + fid; n.position = Vector3(at.x, ground(at.x, at.y), at.y); n.rotation.y = yaw; _root.add_child(n)
@@ -462,6 +467,7 @@ func _set_street(vg: Dictionary, ws: Dictionary) -> void:
 	m.emission = ws.col; m.emission_energy_multiplier = ws.e
 	var lt = vg.light
 	if lt != null: (lt as OmniLight3D).light_energy = float(ws.e) / Bench3D.WINDOW_E * Bench3D.HOME_LIGHT_E * 1.4; (lt as OmniLight3D).light_color = ws.col; (lt as OmniLight3D).visible = float(ws.e) > 0.02
+	if vg.has("group"): Kit3D.set_group(str(vg.group), float(ws.e) > 0.02); Kit3D.set_level(str(vg.group), float(ws.e) / Bench3D.WINDOW_E)
 
 func _apply_district() -> void:
 	for f in dq.get("feeders", []):
@@ -499,7 +505,7 @@ func report() -> Dictionary:
 		var s: Dictionary = dd.sec[sid]
 		var ws: Dictionary = s.get("ws", {})
 		secs[sid] = {"fid": s.fid, "k": int(s.k), "homes": int(s.village.homes), "e": float((s.village.mat as StandardMaterial3D).emission_energy_multiplier), "dark": bool(ws.get("dark", false)),
-			"col": (s.village.mat as StandardMaterial3D).emission, "sw": _sw_kind(s), "poles": (s.poles as Array).size(), "cable": s.cable_mat != null}
+			"lamp_on": Kit3D.group_on(str(s.village.group)), "col": (s.village.mat as StandardMaterial3D).emission, "sw": _sw_kind(s), "poles": (s.poles as Array).size(), "cable": s.cable_mat != null}
 	r["sections"] = secs
 	var hw := {}
 	for fid in dd.fdr:
