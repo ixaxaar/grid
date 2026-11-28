@@ -31,6 +31,7 @@ var _house_mm: Array[MultiMesh] = []
 var _house_map: Array = []       # per multimesh: Array of [town_id, energy index]
 var _town_lamps: Dictionary = {} # town id -> Array[Node3D] (lamps, light pools)
 var _yard_lights: Dictionary = {}# sub id -> Array[Node3D]
+var _yard_wins: Dictionary = {}  # sub id (or "town:<id>") -> the control-room window bands: lit while the bus is live, day or night
 var _wire_glow: Dictionary = {}  # line id -> MeshInstance3D (glow overlay of the conductors)
 var _cable: Dictionary = {}      # sea cable visuals
 var _battery: Dictionary = {}
@@ -640,7 +641,7 @@ func _nearest_town(p_tiles: Vector2) -> Dictionary:
 
 func _build_layout() -> void:
 	for c in _root_infra.get_children(): c.queue_free()
-	_house_mm.clear(); _house_map.clear(); _town_lamps.clear(); _yard_lights.clear(); _battery = {}; _lighthouse = {}; _unit_lights.clear()
+	_house_mm.clear(); _house_map.clear(); _town_lamps.clear(); _yard_lights.clear(); _yard_wins.clear(); _battery = {}; _lighthouse = {}; _unit_lights.clear()
 	_town_inst.clear(); _town_lampmm.clear(); _wave.clear(); _warn.clear(); _night_lights.clear(); _lamp_mats.clear()
 	_town_geo.clear(); _subst.clear(); _edge_sig.clear()
 	if _edge_root != null: _edge_root.queue_free(); _edge_root = null
@@ -1165,7 +1166,7 @@ func _soft_dot() -> Texture2D:
 
 ## The city substation of a job: where a transmission line ends at a town, the yard stands just inside the last tower (the line's ring is 140 m), drawn
 ## CITY_YARD_SCALE times larger than a plain yard so it reads from play height. Only the jobs of chapters 5 and 6 (JOB_SUBJECT) get one.
-const CITY_YARD_SCALE := 3.5
+const CITY_YARD_SCALE := 4.5
 func _gen_substations(centres: Array) -> void:
 	if not JOB_SUBJECT.has(str(model.get("level", ""))): return
 	for cc in centres:
@@ -1183,27 +1184,49 @@ func _gen_substations(centres: Array) -> void:
 			elif (pts[pts.size() - 1] as Vector2).distance_to(tw.pos) < 0.3: dir += ((pts[pts.size() - 2] as Vector2) - (pts[pts.size() - 1] as Vector2)).normalized()
 		if dir.length() < 0.01: continue
 		dir = dir.normalized()
-		var p := c + dir * 100.0
+		var p := c + dir * 90.0
 		_subst[id] = {"p": Vector3(p.x, ground(p.x, p.y), p.y), "dir": dir}
 
 func _build_city_yard(id: String) -> void:
 	var sd: Dictionary = _subst[id]
 	_yard_at(sd.p, "town:" + id, CITY_YARD_SCALE, -atan2((sd.dir as Vector2).y, (sd.dir as Vector2).x))
+	# C22: floodlight masts at the four corners of the city yard (world metres: a light's range does not follow a parent's scale), lit at night with the plant floods
+	var d: Vector2 = sd.dir; var nrm := Vector2(-d.y, d.x); var yp: Vector3 = sd.p
+	for cx in [-1.0, 1.0]:
+		for cz in [-1.0, 1.0]:
+			var q: Vector2 = Vector2(yp.x, yp.z) + d * (cx * 13.0 * CITY_YARD_SCALE * 0.94) + nrm * (cz * 9.0 * CITY_YARD_SCALE * 0.94)
+			Kit3D.flood_mast(_root_infra, Vector3(q.x, ground(q.x, q.y) + 0.2, q.y), yp, quality, 22.0, "plant")
+			_night_lights.append(_beacon(_root_infra, Vector3(q.x, ground(q.x, q.y) + 23.0, q.y), Color(1.0, 0.8, 0.5), 3.0, 0.009))
 
 func _build_yard(s: Dictionary) -> void:
 	_yard_at(tile_to_world(s.pos as Vector2 + Vector2(0.5, 0.5)), str(s.id), 1.0, 0.0)
 
+## A yard surface: the ambientCG concrete or gravel set, triplanar so the box needs no UVs; about 3 m per repeat in the world whatever the yard's scale.
+func _yard_pbr(set_name: String, tint: Color, sc: float) -> StandardMaterial3D:
+	var m := Assets3D.pbr(set_name, tint, 1.0)
+	m.uv1_triplanar = true; m.uv1_scale = Vector3.ONE * sc / 3.0
+	return m
+
 func _yard_at(p: Vector3, key: String, sc: float, yaw_y: float) -> void:
 	var y := Node3D.new(); y.name = "Yard_%s" % key; y.position = p; y.scale = Vector3.ONE * sc; y.rotation.y = yaw_y; _root_infra.add_child(y)
+	# C22: a PBR concrete slab on a dark gravel apron, so the yard separates from the grass by day (it was one grey slab on a green one)
+	var apron := MeshInstance3D.new(); var abm := BoxMesh.new(); abm.size = Vector3(34, 0.4, 26); apron.mesh = abm
+	apron.material_override = _yard_pbr("gravel", Color(0.55, 0.53, 0.5), sc); apron.position = Vector3(0, 0.05, 0); y.add_child(apron)
 	var pad := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(26, 0.6, 18); pad.mesh = bm
-	var pm := StandardMaterial3D.new(); pm.albedo_color = Color(0.5, 0.49, 0.46); pm.roughness = 1.0; pad.material_override = pm
-	pad.position = Vector3(0, 0.1, 0); y.add_child(pad)
+	pad.material_override = _yard_pbr("concrete", Color(0.88, 0.86, 0.82), sc)
+	pad.position = Vector3(0, 0.12, 0); y.add_child(pad)
 	var fence := StandardMaterial3D.new(); fence.albedo_color = Color(0.6, 0.62, 0.64, 0.28); fence.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; fence.metallic = 0.6; fence.roughness = 0.4; fence.cull_mode = BaseMaterial3D.CULL_DISABLED
 	for e in [[Vector3(0, 1.2, -9), Vector3(26, 2.2, 0.08)], [Vector3(0, 1.2, 9), Vector3(26, 2.2, 0.08)], [Vector3(-13, 1.2, 0), Vector3(0.08, 2.2, 18)], [Vector3(13, 1.2, 0), Vector3(0.08, 2.2, 18)]]:
 		var f := MeshInstance3D.new(); var fb := BoxMesh.new(); fb.size = e[1]; f.mesh = fb; f.material_override = fence; f.position = e[0]; y.add_child(f)
 	for k in 2:   # the yard kit: two transformers, the gantry, a control hut
 		var t2 := MeshInstance3D.new(); t2.mesh = Props3D.transformer(); t2.position = Vector3(-8 + 6 * k, 0.4, 3); var tm4 := StandardMaterial3D.new(); tm4.vertex_color_use_as_albedo = true; tm4.roughness = 0.5; tm4.metallic = 0.3; t2.material_override = tm4; y.add_child(t2)
-	var hut := MeshInstance3D.new(); var hb := BoxMesh.new(); hb.size = Vector3(6, 3.2, 4); hut.mesh = hb; var hm3 := StandardMaterial3D.new(); hm3.albedo_color = Color(0.7, 0.68, 0.62); hut.material_override = hm3; hut.position = Vector3(8, 2.0, 5); y.add_child(hut)
+	var hut := MeshInstance3D.new(); var hb := BoxMesh.new(); hb.size = Vector3(6, 3.2, 4); hut.mesh = hb; var hm3 := StandardMaterial3D.new(); hm3.albedo_color = Color(0.82, 0.70, 0.55); hm3.roughness = 0.9; hut.material_override = hm3; hut.position = Vector3(8, 2.0, 5); y.add_child(hut)
+	var roof := MeshInstance3D.new(); var rb := BoxMesh.new(); rb.size = Vector3(6.6, 0.3, 4.6); roof.mesh = rb; var rm3 := StandardMaterial3D.new(); rm3.albedo_color = Color(0.22, 0.23, 0.25); rm3.roughness = 0.7; roof.material_override = rm3; roof.position = Vector3(8, 3.75, 5); y.add_child(roof)
+	var wins: Array = []   # the control room: a warm lit window band on the faces that look at the yard, lit while the bus is live, by day too
+	var wmat := StandardMaterial3D.new(); wmat.albedo_color = Color(0.25, 0.2, 0.12); wmat.emission_enabled = true; wmat.emission = Color(1.0, 0.76, 0.46); wmat.emission_energy_multiplier = 4.5
+	for wf in [[Vector3(5.0 - 0.03, 2.3, 5.0), Vector3(0.06, 0.9, 3.2)], [Vector3(8.0, 2.3, 7.0 + 0.03), Vector3(4.6, 0.9, 0.06)]]:
+		var wn := MeshInstance3D.new(); var wbm := BoxMesh.new(); wbm.size = wf[1]; wn.mesh = wbm; wn.material_override = wmat; wn.position = wf[0]; wn.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; y.add_child(wn); wins.append(wn)
+	_yard_wins[key] = wins
 	var tr := MeshInstance3D.new(); tr.mesh = Props3D.transformer(); tr.position = Vector3(-5, 0.4, 2); tr.visible = false
 	var tmat := StandardMaterial3D.new(); tmat.vertex_color_use_as_albedo = true; tmat.roughness = 0.5; tmat.metallic = 0.3
 	tr.material_override = tmat; y.add_child(tr)
@@ -1477,9 +1500,17 @@ func _build_lines() -> void:
 		_wire_glow[str(r.id)] = gi
 	for l in model.lines:
 		var kind := str(l.kind)
-		if routed.has(str(l.id)) or kind == "xfmr": continue
+		if routed.has(str(l.id)): continue
+		if kind == "xfmr" and not _xfmr_is_a_line(l): continue
 		if kind == "cable": _build_sea_cable(l); continue
 		_build_pole_line(l, wire_mat, pole_mat, meshes)
+
+## C23: the engine models a feeder to a town (WO-14: 33 kV, four tiles long) as a transformer branch; a transformer between buses a tile or more apart is a line on the
+## map, so it is drawn as one. A transformer inside a yard (the buses on one spot) is not.
+const XFMR_LINE_TILES := 1.5
+func _xfmr_is_a_line(l: Dictionary) -> bool:
+	var pts: Array = l.pts
+	return field is GenField and pts.size() >= 2 and (pts[0] as Vector2).distance_to(pts[pts.size() - 1] as Vector2) >= XFMR_LINE_TILES
 
 func _build_pole_line(l: Dictionary, wire_mat: Material, pole_mat: Material, meshes: Dictionary) -> void:
 	if field is GenField and float(l.get("kv", 11.0)) >= 66.0: _build_tower_line(l, wire_mat, meshes); return
@@ -1488,6 +1519,7 @@ func _build_pole_line(l: Dictionary, wire_mat: Material, pole_mat: Material, mes
 	if not meshes.has(key): meshes[key] = Props3D.support("pcc-11", 11.0, 9.0)
 	var mm: Array = meshes[key]
 	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sg := SurfaceTool.new(); sg.begin(Mesh.PRIMITIVE_TRIANGLES)   # C23: a glow overlay on the middle phase, so a distribution line reads between the towns (WO-14 report: no line was visible)
 	var prev: Array = []
 	var acc := 0.0
 	for k in range(pts.size() - 1):
@@ -1505,9 +1537,14 @@ func _build_pole_line(l: Dictionary, wire_mat: Material, pole_mat: Material, mes
 			for at in mm[1]: att.append(base + basis * (at as Vector3))
 			if not prev.is_empty():
 				for ph in 3: Props3D.add_wire(st, prev[ph], att[ph], 1.6, 0.05, acc)
+				Props3D.add_wire(sg, prev[1], att[1], 1.6, 0.3, acc)
 				acc += (prev[0] as Vector3).distance_to(att[0])
 			prev = att
 	var wi := MeshInstance3D.new(); wi.mesh = st.commit(); wi.material_override = wire_mat; _root_dyn.add_child(wi)
+	if field is GenField:
+		var gm := _glow_mat(Color(1.0, 0.75, 0.4, 1.0), 1.0, 0.6); gm.set_shader_parameter("inflate", 0.0003); gm.set_shader_parameter("pulse_depth", 0.2)
+		var gi := MeshInstance3D.new(); gi.mesh = sg.commit(); gi.material_override = gm; gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_dyn.add_child(gi)
+		_wire_glow[str(l.id)] = gi
 
 ## A transmission line on lattice towers: height and arm by voltage, about 330 m spans, six conductors (two circuits) and an earth wire,
 ## a glow overlay in the loading band colour, a red light on each tower top at night.
@@ -1641,9 +1678,11 @@ func _update_dynamic() -> void:
 	for s in model.subs:
 		var ls: Array = _yard_lights.get(str(s.id), [])
 		for node in ls: node.visible = bool(s.get("energised", false)) and n > 0.2
+		for node in _yard_wins.get(str(s.id), []): node.visible = bool(s.get("energised", false))
 	for id in _subst:   # the city substation's lamp and flood follow the town's bus
 		var tw: Dictionary = by_id.get(id, {})
 		for node in _yard_lights.get("town:" + str(id), []): node.visible = not tw.is_empty() and float(tw.get("v", 0.0)) > 0.0 and n > 0.2
+		for node in _yard_wins.get("town:" + str(id), []): node.visible = not tw.is_empty() and float(tw.get("v", 0.0)) > 0.0
 	for ul in _unit_lights:
 		var on := false
 		for u in model.units: if str(u.id) == ul[0]: on = bool(u.online)
@@ -1864,7 +1903,7 @@ func report_focus() -> bool:
 		var m := 0
 		for e in Array(t.get("energies", [])): if float(e) <= 0.0: m += 1
 		if m > most: most = m; best = str(t.id)
-	if most == 0: return _focus_overload()
+	if most == 0: return _focus_overload() or _focus_line_end() or _focus_subject()
 	if _town_geo.has(best):
 		var g: Dictionary = _town_geo[best]; var c: Vector2 = g.c
 		var f := Vector2(cos(float(g.rot)), sin(float(g.rot)))   # the first shed wedge starts on the main street: that ray is the boundary
@@ -1886,6 +1925,38 @@ func report_focus() -> bool:
 	_g_target = Vector3(_big_centre.x, ground(_big_centre.x, _big_centre.y), _big_centre.y)
 	_g_dist = minf(_g_dist, 900.0)
 	return true
+
+const SUBJECT_REPORT := ["L14"]   # jobs whose report frames the subject towns with the substation that feeds them (the feeders between them are the point)
+
+func _focus_subject() -> bool:
+	if not SUBJECT_REPORT.has(str(model.get("level", ""))): return false
+	var pts := _job_subject_pts()
+	if pts.is_empty(): return false
+	var towns_at: Array = pts.duplicate()
+	for sb in model.get("subs", []):   # the substation the feeders leave from: the nearest one to the towns
+		var sw := tile_to_world((sb.pos as Vector2) + Vector2(0.5, 0.5)); var near := 1e9
+		for q in towns_at: near = minf(near, Vector2(q.x - sw.x, q.z - sw.z).length())
+		if near < 6.0 * tm: pts.append(sw)
+	var c := Vector3.ZERO
+	for q in pts: c += q
+	c /= float(pts.size())
+	var spread := 0.0
+	for q in pts: spread = maxf(spread, Vector2(q.x - c.x, q.z - c.z).length())
+	_g_target = Vector3(c.x, maxf(ground(c.x, c.z), 0.0), c.z); _g_dist = maxf(spread * 2.0, 900.0) * _aspect_k(); _g_pitch = deg_to_rad(30.0)
+	return true
+
+const LINE_END_FOCUS := ["L15"]   # jobs whose report frames the city substation with its long line running away from the camera, clear of the report panel
+
+## WO-15: the line ran under the report panel. Look along the line from the city: the substation near and left, the line running away to the horizon.
+func _focus_line_end() -> bool:
+	if not LINE_END_FOCUS.has(str(model.get("level", ""))): return false
+	for id in _subst:
+		var sd: Dictionary = _subst[id]; var d: Vector2 = sd.dir; var sp: Vector3 = sd.p
+		var at := Vector2(sp.x, sp.z) + d * 260.0
+		_g_yaw = atan2(-d.x, -d.y); _g_pitch = deg_to_rad(22.0); _g_dist = 900.0 * _aspect_k()
+		_g_target = Vector3(at.x, ground(at.x, at.y), at.y)
+		return true
+	return false
 
 const OVERLOAD_FOCUS := ["L16"]   # jobs whose failed report frames the overloaded line with the plant that feeds it and the town it serves
 
