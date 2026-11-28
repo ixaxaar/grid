@@ -215,6 +215,7 @@ func _tools_refresh() -> void:
 	var leg: Label = tool_row.get_node("Legend")
 	leg.text = T("CAR_LEG_LOAD") if colour == "load" else T("CAR_LEG_HEALTH")
 	leg.text += "  " + T("CAR_LEG_BADGES")
+	leg.tooltip_text = leg.text; leg.mouse_filter = Control.MOUSE_FILTER_STOP   # 1128c C11: the key clips at narrow widths; the whole text is on hover
 	if compact: leg.visible = false; tool_row.tooltip_text = leg.text   # the phone has no room for the key: it is the row's tooltip
 
 func _copy_code() -> void:
@@ -282,7 +283,7 @@ func refresh() -> void:
 	(stats.cash as Label).tooltip_text = T("CAR_CASH_LIM") % str(d.creditText)
 	if bool(d.get("borrowing", false)): (stats.cash as Label).text = T("CAR_CASH_DEBT") % str(d.cashText)
 	(stats.owed as Label).text = T("CAR_CASH_OWED") % [str(d.get("owedText", "")), str(d.get("cashAfterText", ""))] if str(d.get("owedText", "")) != "" and float(d.get("committedQ", 0.0)) > 0.0 else ""
-	(stats.standing as Label).text = "\n".join([str(d.get("standingText", "")), str(d.get("ownersDueText", ""))].filter(func(x): return x != "")); (stats.standing as Label).visible = not compact   # a phone has no room for a third line: there it is the cash tooltip
+	(stats.standing as Label).text = "\n".join([_keep_items(str(d.get("standingText", ""))), str(d.get("ownersDueText", ""))].filter(func(x): return x != "")); (stats.standing as Label).visible = not compact   # a phone has no room for a third line: there it is the cash tooltip
 	if compact and (stats.standing as Label).text != "": (stats.cash as Label).tooltip_text += "\n" + (stats.standing as Label).text
 	(stats.owed as Label).add_theme_color_override("font_color", Color(_ink(), 0.62) if not str(d.get("cashAfterText", "")).begins_with("-") else _bad())
 	bar_saidi.set_vals(T("CAR_SAIDI"), float(d.ytd.saidi), float(d.targets.saidi), float(d.expected.saidi), 1)
@@ -704,3 +705,10 @@ func _req_tab() -> void:
 		var show := CareerKit.btn(T("CAR_SHOW_ON_MAP") % str(r.feederId), false, func():
 			var f2 := feeder_of(fid)
 			if not f2.is_empty() and not (f2.sections as Array).is_empty(): _on_pick({"type": "section", "id": str(f2.sections[0].id), "feeder": fid}), 14); show.name = "Show_" + rid; row.add_child(show)
+
+## 1128c C11: "trees lv 1 $91,440" broke mid-item when the line wrapped; each item between the dots stays whole.
+static func _keep_items(t: String) -> String:
+	var i := t.find(": ")
+	if i < 0: return t
+	var items := t.substr(i + 2).split(" · ")
+	return t.left(i + 2) + " · ".join(Array(items).map(func(x): return str(x).replace(" ", "\u00a0")))
