@@ -6,6 +6,7 @@ extends RefCounted
 
 const DIR := "res://world3d/assets/"
 const TEX := "res://world3d/tex/"
+const PORCH := {"house_a": Vector2(0.0, 3.55), "house_c": Vector2(0.0, 3.6), "house_e": Vector2(0.0, 3.55), "house_g": Vector2(-3.3, 3.7), "house_k": Vector2(1.76, 4.55), "house_t": Vector2(0.0, 4.8)}   # x, z of the door on the front wall
 const HOUSES := ["house_a", "house_c", "house_e", "house_g", "house_k", "house_t"]
 
 static var _cache := {}
@@ -81,7 +82,10 @@ static func house_mats(win: Material) -> Dictionary:
 	trim.albedo_texture = tex("house_palette_albedo.png"); trim.roughness = 0.8
 	trim.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	var roof := pbr("roof", Color(0.78, 0.74, 0.72), 1.0)
-	return {"trim": trim, "roof": roof, "window": win, "wall_tints": [Color(0.92, 0.88, 0.80), Color(0.80, 0.84, 0.88), Color(0.90, 0.84, 0.70), Color(0.86, 0.80, 0.78), Color(0.78, 0.86, 0.80), Color(0.94, 0.93, 0.90)],
+	var dark := StandardMaterial3D.new(); dark.albedo_color = Color(0.05, 0.07, 0.10); dark.roughness = 0.25   # a pane with nobody home: never lit
+	var porch := Kit3D._lamp_mat(Color(1.0, 0.78, 0.45))   # one emissive shared by every porch light; Kit3D drives it with the estate group
+	Kit3D._reg(null, porch, 0.0, 7.0, "estate")
+	return {"trim": trim, "roof": roof, "window": win, "window_dark": dark, "porch": porch, "keep": [], "wall_tints": [Color(0.92, 0.88, 0.80), Color(0.80, 0.84, 0.88), Color(0.90, 0.84, 0.70), Color(0.86, 0.80, 0.78), Color(0.78, 0.86, 0.80), Color(0.94, 0.93, 0.90)],
 		"dim": [[trim, Color.WHITE], [roof, Color(0.78, 0.74, 0.72)]]}
 
 ## One house of kind `kind` (HOUSES[i]) at `at`, turned `yaw`. Returns its node; its wall material is added to mats.dim.
@@ -90,7 +94,7 @@ static func house(parent: Node3D, kind: int, at: Vector3, yaw: float, mats: Dict
 	var tint: Color = (mats.wall_tints as Array)[kind % (mats.wall_tints as Array).size()]
 	var wall := pbr("plaster", tint, 1.0)
 	(mats.dim as Array).append([wall, tint])
-	var sm := {"trim": mats.trim, "wall": wall, "roof": mats.roof, "window": mats.window}
+	var sm := {"trim": mats.trim, "wall": wall, "roof": mats.roof, "window": mats.window, "window_dark": mats.window_dark}
 	var n := Node3D.new(); n.name = "House"; n.position = at; n.rotation.y = yaw; parent.add_child(n)
 	for e in meshes("houses/" + id):
 		var mi := MeshInstance3D.new(); mi.mesh = e.mesh; mi.transform = e.xf; mi.name = "Body"
@@ -98,6 +102,16 @@ static func house(parent: Node3D, kind: int, at: Vector3, yaw: float, mats: Dict
 			var k := mat_name(e.mesh, si)
 			if sm.has(k): mi.set_surface_override_material(si, sm[k])
 		n.add_child(mi)
+	# the porch light over the door (door positions read off the Kenney models), and its pool; all on the estate supply
+	var pp: Vector2 = PORCH.get(id, Vector2(0.0, 3.6))
+	var pl := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(0.3, 0.22, 0.14); pl.mesh = bm; pl.material_override = mats.porch
+	pl.position = Vector3(pp.x, 2.5, pp.y + 0.08); pl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; n.add_child(pl)
+	if quality != "low":
+		for spec in [[Vector3(pp.x, 2.1, pp.y + 1.0), 7.0, 1.5], [Vector3(pp.x * 0.5, 2.4, pp.y + 3.5), 11.0, 1.8]]:   # the doorstep, and the light of the rooms on the lawn
+			var wl := OmniLight3D.new(); wl.light_color = Color(1.0, 0.78, 0.48); wl.omni_range = spec[1]; wl.omni_attenuation = 1.2; wl.shadow_enabled = false
+			wl.position = spec[0]; n.add_child(wl)
+			var km := Kit3D._lamp_mat(Color.BLACK); (mats.keep as Array).append(km)   # Kit3D holds materials weakly: keep one alive per light
+			Kit3D._reg(wl, km, spec[2], 0.0, "estate")
 	return n
 
 ## The blackout: every house material takes the cold dark tone (a multiplier on its lit colour).
@@ -113,7 +127,7 @@ static func _tree_mat(kind: String) -> Dictionary:
 	if _tree_mats.has(kind): return _tree_mats[kind]
 	var tw := StandardMaterial3D.new()
 	tw.albedo_texture = tex("tree_%s_albedo.png" % ("fir_twig" if kind.begins_with("fir") else "broad_leaf"))
-	tw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; tw.alpha_scissor_threshold = 0.5
+	tw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; tw.alpha_scissor_threshold = 0.32
 	tw.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
 	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(1.7, 1.75, 1.5)   # the sprig texture is dark: lift it so a night wood reads green, not black
 	tw.backlight_enabled = true; tw.backlight = Color(0.30, 0.34, 0.22)
@@ -125,12 +139,50 @@ static func _tree_mat(kind: String) -> Dictionary:
 	var d := {"trunk": tr, "twig": tw}
 	_tree_mats[kind] = d; return d
 
+static var _tree_meshes := {}
 static func tree_mesh(kind: String, lod: int) -> ArrayMesh:
-	return merged("trees/%s_lod%d" % [kind, lod], _tree_mat(kind))
+	var key := "%s%d" % [kind, lod]
+	if _tree_meshes.has(key): return _tree_meshes[key]
+	var am := merged("trees/%s_lod%d" % [kind, lod], _tree_mat(kind))
+	_add_core(am, kind, _trunk_h(kind))
+	_tree_meshes[key] = am
+	return am
+
+## A dark solid inside the crown (tiered cones for a fir, an ellipsoid for the broadleaf): the foliage cards are a see-through spray on their
+## own; with a core behind them the tree reads as one dark mass, as a wood does at night from 100 m.
+static func _add_core(am: ArrayMesh, kind: String, h: float) -> void:
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := 9
+	if kind.begins_with("fir"):
+		for t in 3:
+			var y0 := h * (0.10 + 0.22 * t); var y1 := h * (0.46 + 0.27 * t); var r0 := h * 0.20 * (1.0 - 0.28 * t)
+			for i in seg:
+				var a0 := TAU * float(i) / seg; var a1 := TAU * float(i + 1) / seg
+				var p0 := Vector3(cos(a0) * r0, y0, sin(a0) * r0); var p1 := Vector3(cos(a1) * r0, y0, sin(a1) * r0); var tip := Vector3(0, y1, 0)
+				_tri_out(st, p0, tip, p1, Vector3(cos((a0 + a1) * 0.5), r0 / (y1 - y0), sin((a0 + a1) * 0.5)).normalized())
+	else:
+		var c := Vector3(0, h * 0.8, 0); var rx := h * 0.42; var ry := h * 0.34; var rings := 5
+		for j in rings:
+			var b0 := PI * float(j) / rings; var b1 := PI * float(j + 1) / rings
+			for i in seg:
+				var a0 := TAU * float(i) / seg; var a1 := TAU * float(i + 1) / seg
+				var q := func(b: float, a: float) -> Vector3: return c + Vector3(sin(b) * cos(a) * rx, cos(b) * ry, sin(b) * sin(a) * rx)
+				var v00: Vector3 = q.call(b0, a0); var v01: Vector3 = q.call(b0, a1); var v10: Vector3 = q.call(b1, a0); var v11: Vector3 = q.call(b1, a1)
+				_tri_out(st, v00, v10, v11, ((v00 + v10 + v11) / 3.0 - c).normalized())
+				if j > 0: _tri_out(st, v00, v11, v01, ((v00 + v11 + v01) / 3.0 - c).normalized())
+	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.10, 0.19, 0.10); m.roughness = 1.0; m.vertex_color_use_as_albedo = true
+	var arr := st.commit().surface_get_arrays(0)
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr); am.surface_set_material(am.get_surface_count() - 1, m)
+
+## One triangle whose front side (Godot: clockwise) faces `out`; every vertex takes `out` as its normal.
+static func _tri_out(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, out: Vector3) -> void:
+	var g := -(b - a).cross(c - a)
+	if g.dot(out) < 0.0: var t := b; b = c; c = t
+	st.set_normal(out); st.add_vertex(a); st.set_normal(out); st.add_vertex(b); st.set_normal(out); st.add_vertex(c)
 
 ## Draws the forest as MultiMeshes in 96 m cells: LOD0 within `near` m of a cell's centre (high tier), LOD1 beyond (and everywhere on low).
 ## `conifer` and `broad` are [Transform3D] / [Color] lists as Bench3D._trees builds them for the procedural trees (unit-height scale in y).
-static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, quality: String) -> void:
+static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, quality: String, gy: Callable = Callable()) -> void:
 	var near := 0.0 if quality == "low" else (110.0 if quality == "medium" else 150.0)
 	var groups := {}
 	for pass_i in 2:
@@ -139,10 +191,18 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 			var t: Transform3D = xf[i]
 			var kind := "broad"
 			if pass_i == 0: kind = "fir_a" if (int(absf(t.origin.x * 7.3 + t.origin.z * 3.1)) % 3) == 0 else "fir_b"
-			var key := "%s|%d|%d" % [kind, floori(t.origin.x / 96.0), floori(t.origin.z / 96.0)]
-			if not groups.has(key): groups[key] = {"kind": kind, "xf": [], "col": [], "c": Vector3.ZERO}
-			var g: Dictionary = groups[key]
-			(g.xf as Array).append(t); (g.col as Array).append(cols[i]); g.c += t.origin
+			var kt := [[t, cols[i]]]
+			if quality != "low" and gy.is_valid():   # a second tree beside it: the wood is massed, not a scatter
+				var h := absf(sin(t.origin.x * 12.9898 + t.origin.z * 78.233)) * TAU
+				var o := t.origin + Vector3(cos(h), 0, sin(h)) * (2.6 + 1.6 * absf(cos(h * 3.1)))
+				o.y = gy.call(o.x, o.z) - 0.3
+				kt.append([Transform3D(t.basis.rotated(Vector3.UP, 1.7).scaled_local(Vector3(0.88, 0.88, 0.88)), o), cols[i]])
+			for kk in kt:
+				var tt: Transform3D = kk[0]
+				var key2 := "%s|%d|%d" % [kind, floori(tt.origin.x / 96.0), floori(tt.origin.z / 96.0)]
+				if not groups.has(key2): groups[key2] = {"kind": kind, "xf": [], "col": [], "c": Vector3.ZERO}
+				var g2: Dictionary = groups[key2]
+				(g2.xf as Array).append(tt); (g2.col as Array).append(kk[1]); g2.c += tt.origin
 	var heights := {}
 	for k in ["fir_a", "fir_b", "broad"]:
 		heights[k] = _trunk_h(k)
@@ -230,4 +290,40 @@ static func prop(parent: Node3D, id: String, at: Vector3, yaw: float, s := 1.0, 
 	for e in meshes("props/" + id):
 		var mi := MeshInstance3D.new(); mi.mesh = e.mesh; mi.transform = e.xf; n.add_child(mi)
 		if not shadow: mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return n
+
+## A Kenney blocky character (people/char_a|e|h, 1.75 m) standing at `at`, facing `yaw`. The file's node offset is dropped: its mesh is already on the ground.
+static func person(parent: Node3D, id: String, at: Vector3, yaw: float) -> Node3D:
+	var n := Node3D.new(); n.name = "Person"; n.position = at; n.rotation.y = yaw; parent.add_child(n)
+	for e in meshes("people/" + id):
+		var mi := MeshInstance3D.new(); mi.mesh = e.mesh; n.add_child(mi)
+	return n
+
+## The Kenney sedan (3.6 m, front toward +Z) with two headlights: emissive lenses and, above the low tier, two spots; lit whenever it is night.
+static func car(parent: Node3D, at: Vector3, yaw: float, quality: String) -> Node3D:
+	var n := Node3D.new(); n.name = "Car"; n.position = at; n.rotation.y = yaw; parent.add_child(n)
+	for e in meshes("people/sedan"):
+		var mi := MeshInstance3D.new(); mi.mesh = e.mesh; n.add_child(mi)
+	var lm := Kit3D._lamp_mat(Color(1.0, 0.95, 0.80))
+	for sx in [-0.62, 0.62]:
+		var l := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(0.34, 0.2, 0.06); l.mesh = bm; l.material_override = lm; l.position = Vector3(sx, 0.62, 1.8)
+		l.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; n.add_child(l)
+	var sp: SpotLight3D = null
+	if quality != "low":
+		sp = SpotLight3D.new(); sp.light_color = Color(1.0, 0.95, 0.82); sp.spot_range = 26.0; sp.spot_angle = 30.0; sp.shadow_enabled = false
+		n.add_child(sp); sp.position = Vector3(0, 0.7, 1.9); sp.look_at_from_position(sp.position, sp.position + Vector3(0, -0.12, 1.0), Vector3.UP)
+	Kit3D._reg(sp, lm, 28.0, 7.0, "car")
+	return n
+
+## The same mesh prop with its materials made matte (a car cover is cloth, not mirror: with no reflections in the sky a metallic surface is black).
+static func prop_matte(parent: Node3D, id: String, at: Vector3, yaw: float, s := 1.0) -> Node3D:
+	var n := prop(parent, id, at, yaw, s)
+	for mi in n.get_children():
+		var m: Mesh = (mi as MeshInstance3D).mesh
+		for si in m.get_surface_count():
+			var sm := m.surface_get_material(si)
+			if sm is StandardMaterial3D:
+				var c := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+				c.metallic = 0.0; c.metallic_texture = null; c.roughness = 0.85; c.roughness_texture = null; c.albedo_color = Color(2.8, 2.9, 3.2)   # the Poly Haven cover is charcoal (albedo 0.2): lifted to a grey tarp, or it is a black box at night
+				(mi as MeshInstance3D).set_surface_override_material(si, c)
 	return n

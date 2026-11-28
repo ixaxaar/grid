@@ -47,6 +47,8 @@ func _initialize() -> void:
 		var es := Assets3D.meshes(rel)
 		if es.is_empty(): fails.append("%s: no meshes (not imported?)" % rel)
 		for e in es: meshes["%s/%s" % [rel, e.name]] = e.mesh
+	for tk in ["fir_a", "fir_b", "broad"]:   # the procedural dark cores added to each tree LOD
+		for lod in 2: meshes["tree %s lod%d (with core)" % [tk, lod]] = Assets3D.tree_mesh(tk, lod)
 	var total := 0
 	for k in meshes: total += _check_mesh(k, meshes[k], fails)
 	# the roof slopes of the province house must exist from outside: at least two up-facing front faces on each side of the ridge

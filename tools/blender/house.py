@@ -19,7 +19,7 @@ md=o.modifiers.new('t','TRIANGULATE'); md.quad_method='BEAUTY'; md.min_vertices=
 bpy.ops.object.modifier_apply(modifier='t')
 me=o.data
 me.materials.clear()
-for nm in ("trim","wall","roof","window"): me.materials.append(bpy.data.materials.new(nm))
+for nm in ("trim","wall","roof","window","window_dark"): me.materials.append(bpy.data.materials.new(nm))
 cn=me.corner_normals; flip=[]
 for p in me.polygons:
     m=sum((cn[l].vector for l in range(p.loop_start,p.loop_start+p.loop_total)),Vector((0,0,0)))
@@ -52,6 +52,20 @@ for f in bm.faces:
             if ax==2: l[uvl].uv=(p.x/TILE,p.y/TILE)
             elif ax==0: l[uvl].uv=(p.y/TILE,p.z/TILE)
             else: l[uvl].uv=(p.x/TILE,p.z/TILE)
+# about 60 % of the window panes are lit (served estate), the rest stay dark glass: islands of window faces, hashed
+seen=set(); isl=0
+for f in bm.faces:
+    if f.material_index!=3 or f.index in seen: continue
+    st=[f]; seen.add(f.index); comp=[]
+    while st:
+        x=st.pop(); comp.append(x)
+        for e in x.edges:
+            for g in e.link_faces:
+                if g.material_index==3 and g.index not in seen: seen.add(g.index); st.append(g)
+    lit=((isl*7+3)*2654435761>>5)%10<6
+    for x in comp: x.material_index=3 if lit else 4
+    isl+=1
+print("WINDOWS",isl)
 print("FACES",cnt)
 bm.to_mesh(me); bm.free()
 exec(open('/tmp/claude-1000/assets-dl/tools/nrm.py').read())

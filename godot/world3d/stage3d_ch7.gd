@@ -93,6 +93,7 @@ static func camera(scn: String) -> Array:   # [target, yaw deg, pitch deg, dist 
 		"l27": return [Vector3(0.0, 0.0, -24.0), 16.0, 25.0, 140.0]   # the three units come down from under the exam card
 		"l25": return [Vector3(30.0, 0.0, 0.0), -34.0, 22.0, 100.0]   # 1128c manager: the generator, its bay and the line large
 		"l26": return [Vector3(35.0, 0.0, -10.0), -6.0, 21.0, 300.0]
+		"l23": return [Vector3(-12.0, 0.0, 57.0), 14.0, 38.0, 150.0]   # CC0 pass: the yard and the estate fill the frame, the houses clear of the tray
 	return [Vector3(-6.0, 0.0, 26.0), 16.0, 31.0, 175.0]   # 1128c: higher, so the transformers show over the board, and back, so the lit estate is in the frame
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -121,6 +122,12 @@ static func _fault_fx(s: Stage3D, f: Node3D) -> void:
 	var kmat := StandardMaterial3D.new(); kmat.albedo_color = Color(0.07, 0.07, 0.08, 0.5); kmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; kmat.roughness = 1.0
 	kmat.emission_enabled = true; kmat.emission = Color(0.9, 0.35, 0.1); kmat.emission_energy_multiplier = 0.03   # the fire under it lights its base
 	sk.material_override = kmat; sk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; f.add_child(sk)
+	var em := Node3D.new(); em.name = "Ember"; f.add_child(em)   # the fire inside the smoke: a glowing core and its light on the cabinets round it
+	var emm := StandardMaterial3D.new(); emm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; emm.albedo_color = Color(1.0, 0.45, 0.1); emm.emission_enabled = true; emm.emission = Color(1.0, 0.4, 0.08); emm.emission_energy_multiplier = 5.0
+	var es := SphereMesh.new(); es.radius = 0.9; es.height = 1.8; es.radial_segments = 8; es.rings = 4
+	var emi := MeshInstance3D.new(); emi.mesh = es; emi.material_override = emm; emi.position = Vector3(0, -0.6, 0); emi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; em.add_child(emi)
+	if s.quality != "low":
+		var el := OmniLight3D.new(); el.light_color = Color(1.0, 0.5, 0.18); el.light_energy = 12.0; el.omni_range = 16.0; el.omni_attenuation = 1.0; el.shadow_enabled = false; el.position = Vector3(0, -0.4, 0); em.add_child(el)
 
 static func _plume(s: Stage3D, parent: Node3D, at: Vector3, r: float, nm: String) -> MeshInstance3D:
 	var sm := SphereMesh.new(); sm.radius = r; sm.height = r * 2.0; sm.radial_segments = 14; sm.rings = 8
@@ -261,7 +268,7 @@ static func _build_board(s: Stage3D) -> void:
 	d["flash"] = _flash(s, s._root, d.fault_at, 3.0, "FaultFlash")
 	_fault_fx(s, d.flash as Node3D)
 	# the estate: sheds in two rows, their windows lit by one material
-	var win := StandardMaterial3D.new(); win.albedo_color = Color(0.13, 0.17, 0.25); win.metallic = 0.3; win.roughness = 0.2; win.cull_mode = BaseMaterial3D.CULL_DISABLED; win.emission_enabled = true; win.emission = Bench3D.WARM; win.emission_energy_multiplier = 0.0
+	var win := StandardMaterial3D.new(); win.albedo_color = Color(0.13, 0.17, 0.25); win.metallic = 0.3; win.roughness = 0.2; win.cull_mode = BaseMaterial3D.CULL_DISABLED; win.emission_enabled = true; win.emission = Color(1.0, 0.70, 0.36) if s.scn == "l23" else Bench3D.WARM; win.emission_energy_multiplier = 0.0
 	d["estate"] = win
 	var body := s._vc_mat(0.9); d["estate_body"] = body   # 1128c: one material for the estate walls, darkened in a blackout
 	var real := s.scn == "l23"   # CC0 asset pass: Kenney suburban houses with PBR walls and roofs; the lit/dark contract is unchanged
@@ -272,10 +279,6 @@ static func _build_board(s: Stage3D) -> void:
 		if real:
 			var hn := Assets3D.house(s._root, k, Vector3(ex, s.ground(ex, ez) - 0.1, ez), PI if k < 3 else 0.0, hm, s.quality)
 			hn.name = "Shed%d" % k
-			if s.quality != "low":   # a warm pool from the windows on the ground in front of each house
-				var wl := OmniLight3D.new(); wl.light_color = Color(1.0, 0.80, 0.52); wl.omni_range = 11.0; wl.omni_attenuation = 1.2; wl.shadow_enabled = false
-				wl.position = Vector3(0.0, 2.2, -5.0 if k < 3 else 5.0); hn.add_child(wl)
-				Kit3D._reg(wl, Kit3D._lamp_mat(Color.BLACK), 3.0, 0.0, "estate")
 			continue
 		var w := 11.0; var dd := 8.0; var h := 4.5
 		var n := Node3D.new(); n.name = "Shed%d" % k; n.position = Vector3(ex, s.ground(ex, ez) - 0.1, ez); n.rotation.y = PI if k < 3 else 0.0; s._root.add_child(n)
@@ -319,20 +322,32 @@ static func _build_board(s: Stage3D) -> void:
 ## CC0 pass (WO-23): the estate's asphalt street, utility boxes and security lights round the switchgear, a covered car by the houses.
 static func _dress_l23(s: Stage3D) -> void:
 	var rd := Assets3D.pbr("asphalt", Color(0.62, 0.62, 0.64), 1.0); rd.uv1_triplanar = true; rd.uv1_world_triplanar = true; rd.uv1_scale = Vector3.ONE * 0.25
-	rd.texture_repeat = true
-	for seg in [[Vector2(-20.0, 14.0), Vector2(-20.0, 66.0), 6.0], [Vector2(-44.0, 83.0), Vector2(4.0, 83.0), 6.0]]:
-		var a: Vector2 = seg[0]; var b: Vector2 = seg[1]; var hw: float = float(seg[2]) * 0.5
+	rd.texture_repeat = true; rd.vertex_color_use_as_albedo = true; rd.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# the feeder road runs from inside the yard gate to the forecourt, the estate street across the houses; both fade out at their ends into gravel and grass
+	for seg in [[Vector2(-20.0, 2.0), Vector2(-20.0, 68.0), 6.0, 12.0], [Vector2(-48.0, 83.0), Vector2(8.0, 83.0), 6.0, 10.0]]:
+		var a: Vector2 = seg[0]; var b: Vector2 = seg[1]; var hw: float = float(seg[2]) * 0.5; var fade: float = seg[3]
 		var dir := (b - a).normalized(); var nr := Vector2(-dir.y, dir.x)
 		var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		var nseg := int(a.distance_to(b) / 4.0)
+		var L := a.distance_to(b); var nseg := int(L / 3.0)
 		for i in nseg:
-			var p0 := a.lerp(b, float(i) / nseg); var p1 := a.lerp(b, float(i + 1) / nseg)
-			var q := [p0 + nr * hw, p0 - nr * hw, p1 - nr * hw, p1 + nr * hw]
+			var u0 := L * float(i) / nseg; var u1 := L * float(i + 1) / nseg
+			var al0 := minf(smoothstep(0.0, fade, u0), smoothstep(0.0, fade, L - u0)); var al1 := minf(smoothstep(0.0, fade, u1), smoothstep(0.0, fade, L - u1))
+			var p0 := a + dir * u0; var p1 := a + dir * u1
+			var q := [p0 + nr * hw, p0 - nr * hw, p1 - nr * hw, p1 + nr * hw]; var al := [al0, al0, al1, al1]
 			var v: Array = []
 			for pt in q: v.append(Vector3(pt.x, s.ground(pt.x, pt.y) + 0.06, pt.y))
 			st.set_normal(Vector3.UP)
-			for k in [0, 1, 2, 0, 2, 3]: st.add_vertex(v[k])   # front face up: clockwise from above for this order
+			for k in [0, 1, 2, 0, 2, 3]: st.set_color(Color(1, 1, 1, al[k])); st.add_vertex(v[k])
 		s._inst(s._root, st.commit(), rd, "Street", Vector3.ZERO, false)
+	# people under the estate lamps, a car with its headlights on, the car cover by the houses
+	for pr in [["char_a", Vector2(-23.6, 50.8), 2.4], ["char_e", Vector2(-24.6, 49.6), 0.6], ["char_h", Vector2(-16.2, 63.4), -2.2], ["char_a", Vector2(-15.2, 36.6), 1.0]]:
+		var pp: Vector2 = pr[1]; Assets3D.person(s._root, pr[0], Vector3(pp.x, s.ground(pp.x, pp.y), pp.y), pr[2])
+	Assets3D.car(s._root, Vector3(-21.4, s.ground(-21.4, 30.0) + 0.06, 30.0), 0.0, s.quality)
+	# the captive-set halls: a lit window on each (the control building's)
+	for hx in [-72.0, 72.0]:
+		var wm := Kit3D._lamp_mat(Color(1.0, 0.82, 0.55)); wm.albedo_color = Color(0.1, 0.1, 0.1)
+		var wb := s._box(s._root, Vector3(hx, s.ground(hx, 0.0) + 3.3, 5.06), Vector3(4.4, 1.3, 0.06), wm, "ControlWindow"); wb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		Kit3D._reg(null, wm, 0.0, 4.0, "site")
 	for k in 4:   # utility boxes behind the switchgear sections and by the gate
 		var p := [Vector2(-52.0, -5.0), Vector2(-8.0, -5.0), Vector2(8.0, -5.0), Vector2(52.0, -5.0)][k] as Vector2
 		Assets3D.prop(s._root, "utility_box_01", Vector3(p.x, s.ground(p.x, p.y), p.y), 0.0, 1.6)
@@ -344,7 +359,7 @@ static func _dress_l23(s: Stage3D) -> void:
 			for mi in n.get_children():
 				for si in (e.mesh as Mesh).get_surface_count():
 					if Assets3D.mat_name(e.mesh, si).ends_with("_bulb") or Assets3D.mat_name(e.mesh, si).ends_with("_glass"): (mi as MeshInstance3D).set_surface_override_material(si, lm)
-	Assets3D.prop(s._root, "covered_car", Vector3(-3.0, s.ground(-3.0, 62.0), 62.0), 0.4, 1.0)
+	Assets3D.prop_matte(s._root, "covered_car", Vector3(-3.0, s.ground(-3.0, 62.0), 62.0), 0.4, 1.0)
 
 ## The coupler between the sections: a closed bus duct, a reactor coil when there is one, or an open gap.
 static func _coupler_set(s: Stage3D, open: bool, reactor: float) -> void:
@@ -667,7 +682,7 @@ static func process(s: Stage3D, dt: float) -> void:
 			if f.visible: (f.material_override as ShaderMaterial).set_shader_parameter("power", 2.2 * pulse)
 			if f.visible:   # sparks and smoke only when the breaker failed to clear; a cleared fault is a short flash
 				var bad := bool(d.get("failed", false))
-				(f.get_node("Smoke") as CPUParticles3D).emitting = bad; (f.get_node("Sparks") as CPUParticles3D).emitting = bad
+				(f.get_node("Smoke") as CPUParticles3D).emitting = bad; (f.get_node("Sparks") as CPUParticles3D).emitting = bad; (f.get_node("Ember") as Node3D).visible = bad
 		"l24":
 			if not bool(d.rev) or (d.order as Array).is_empty():
 				for f in d.fault_pos: (d.fault_pos[f].flash as MeshInstance3D).visible = false

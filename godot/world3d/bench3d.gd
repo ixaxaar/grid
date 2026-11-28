@@ -644,7 +644,7 @@ func _trees(ok: Callable, half: float, step: float) -> void:
 			else:
 				var s := 7.5 * age
 				bx.append(Transform3D(rot.scaled(Vector3(s, s * (0.9 + 0.2 * v), s)), Vector3(x, y - 0.2, z))); bc.append(Color(0.85 + 0.3 * v, 0.95 + 0.1 * v, 0.8))
-	if real_trees: Assets3D.trees(_root, cx, cc, bx, bc, quality); return   # CC0 asset pass: Poly Haven fir and small tree, LOD cells
+	if real_trees: Assets3D.trees(_root, cx, cc, bx, bc, quality, Callable(self, "ground")); return   # CC0 asset pass: Poly Haven fir and small tree, LOD cells
 	_mm(Props3D.conifer(), cx, cc, "Conifers"); _mm(Props3D.broadleaf(), bx, bc, "Trees")
 
 func _mm(mesh: Mesh, xf: Array, cols: Array, nm: String) -> void:
