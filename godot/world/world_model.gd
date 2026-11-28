@@ -20,6 +20,10 @@ static func l01_hut_pos(d: float) -> Vector2:
 ## Presentation only (1128c province round 3): a job whose brief is about the evening peak opens its 3D view at that hour, before the player presses Run.
 ## The engine's day, its clock and every number stay as they are; the dial and the radio read this hour while the job is fresh (instruments.gd, radio_log.gd),
 ## and the scene returns to the engine's hour with the first block. Returns the minute of the day, or -1 when the job has no preview.
+## Every province job: before the first block the engine has not solved the grid, so no bus has a voltage and a town would be drawn dark at a night opening
+## (WO-14 03:00, WO-15 00:00, WO-18 20:00 ...). Dark means the engine says unserved, so until the first solve these jobs draw their towns lit (presentation
+## only; after the first block the engine's voltage drives the lights).
+const OPEN_LIT := ["P0", "L07", "L08", "L09", "L14", "L15", "L16", "L17", "L18", "L19", "L20", "L21", "L22", "L28"]
 const PREVIEW_MINUTE := {"L16": 1110.0}   # WO-16: the evening peak, drawn at 18:30 (the sunset glow; the brief reads the peak at 19:00)
 static func preview_minute(level: String, tick: int, level_start) -> float:
 	if not PREVIEW_MINUTE.has(level) or level_start == null: return -1.0
@@ -91,7 +95,7 @@ static func _grid(m: Dictionary, w: Dictionary, b) -> void:
 	for bus in w.buses:
 		var p := Vector2(float(bus.x), float(bus.y)); pos[bus.id] = p; kvs[bus.id] = float(bus.kv); live[bus.id] = bool(bus.get("energised", true))
 		var v: float = float(vv[bus.id]) if vv.has(bus.id) else 0.0
-		if not vv.has(bus.id) and (str(m.level) == "P0" or PREVIEW_MINUTE.has(str(m.level))) and not bool(m.solved): v = 1.0   # 1.19: the prologue opens on a running grid at 02:00; the engine solves at the first block. Until then the city shows lit (labels give names only, as on any unsolved grid)
+		if not vv.has(bus.id) and OPEN_LIT.has(str(m.level)) and not bool(m.solved) and not m.blackout: v = 1.0   # 1.19: the prologue opens on a running grid at 02:00; the engine solves at the first block. Until then the city shows lit (labels give names only, as on any unsolved grid)
 		if float(bus.demandMW) > 0.0 or float(bus.peakMW) > 0.0 or bus.kind == "load":
 			var n := clampi(6 + int((float(bus.peakMW) if float(bus.peakMW) > 0.0 else float(bus.demandMW)) / 4.0), 6, 40) if not has_terrain else 14   # 1.8: from the stable peak, not live demand (a heatwave above the peak changed the house count every tick, and every change rebuilt the whole map)   # a market town on the 50 m map: more roofs
 			m.towns.append(_town(str(bus.id), str(bus.name), p, n, v, float(bus.shed), "town", 0))

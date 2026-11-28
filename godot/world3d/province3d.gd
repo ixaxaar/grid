@@ -52,6 +52,7 @@ var _wave := {}                  # town id -> {t0, sig}: when the town's energie
 var _perf_off: PackedStringArray = OS.get_environment("CB_PERF_OFF").split(",")   # QA: switch a cost off to find what a frame spends (forests, houses, lamps, lines, water, shed, farterrain, 3d, glow, fsr)
 var _town_geo := {}              # town id -> {c: Vector2 centre (m), rot: float main-street angle, cnt: int energy sectors}
 var _subst := {}                 # town id -> {p: Vector3 yard centre, dir: Vector2 unit vector from the town towards the incoming transmission line}
+var _towers := {}                # line id -> PackedVector3Array of tower bases (the geometry a truth test reads; a headless MultiMesh keeps no transforms)
 var _warn: Array = []            # red warning lights on the yard gantries: blink at night
 var _warn_l: Array = []          # red warning lights on the tower tops
 var _night_lights: Array = []    # 1.19: works floodlights: on at night
@@ -1238,8 +1239,14 @@ func _build_unit(u: Dictionary) -> void:
 ## the towers' steam follow the unit's `online`; the chimney carries red warning lights.
 ## 1128c: where a plant's yard centre lands (the same rule _build_plant uses), so the town generator's houses stay off the pad.
 func _plant_centre(u: Dictionary) -> Vector3:
+	var o: Vector3 = _plant_pose(u).origin
+	return Vector3(o.x, 0.0, o.z)
+
+## Where a plant stands: `origin` (world x, z), `away` (unit vector, local +X: from the lines' side to the yard's far end), `scale`.
+## The pad's line-side edge is PLANT_EDGE local metres behind the origin; the line that feeds the plant ends there (_plant_edge).
+const PLANT_EDGE := 130.0
+func _plant_pose(u: Dictionary) -> Dictionary:
 	var p := tile_to_world(u.pos as Vector2 + Vector2(0.5, 0.5))
-	var big := str(u.kind) == "coal" or str(u.kind) == "nuclear"
 	var away := Vector2.ZERO   # behind the yard, away from the lines that leave it, so no conductor runs into a tower
 	for l in model.lines:
 		var pts: Array = l.pts
@@ -1248,8 +1255,19 @@ func _plant_centre(u: Dictionary) -> Vector3:
 		elif (pts[pts.size() - 1] as Vector2).distance_to(u.pos) < 0.6: away -= ((pts[pts.size() - 2] as Vector2) - (pts[pts.size() - 1] as Vector2)).normalized()
 	away = away.normalized() if away.length() > 0.01 else Vector2(-0.8, -0.6)
 	var ps := _job_plant_scale()
-	var off := Vector3(away.x, 0.0, away.y) * 260.0 * (1.0 + 0.6 * (ps - 1.0))
-	return Vector3(p.x + off.x, 0.0, p.z + off.z)
+	# the pad's near edge sits 6 m past the bus point, however large the plant is drawn (the old fixed 260 m left a gap of 280 m at 1.5x)
+	var off := away * (PLANT_EDGE * ps - 6.0)
+	return {"origin": Vector3(p.x + off.x, 0.0, p.z + off.y), "away": away, "scale": ps}
+
+## C19: the end of a line at a plant is the plant's pad edge, so the conductors reach the gantry that feeds it; null elsewhere. `p` in tiles.
+func _plant_edge(p: Vector2) -> Variant:
+	for u in model.units:
+		if not (str(u.kind) in ["coal", "gas", "biomass", "nuclear", "diesel"]): continue
+		if (u.pos as Vector2).distance_to(p) > 0.6: continue
+		var po := _plant_pose(u)
+		var o: Vector3 = po.origin; var aw: Vector2 = po.away
+		return Vector2(o.x, o.z) - aw * (PLANT_EDGE * float(po.scale) - 2.0)
+	return null
 
 ## A lamp seen from the play camera: a billboard halo that grows with distance (lamp_glow.gdshader), at `pos` in `parent`. `col` red for aviation lights.
 var _beacon_mesh: ArrayMesh
@@ -1265,18 +1283,10 @@ func _beacon(parent: Node3D, pos: Vector3, col: Color, gain := 2.2, size_k := 0.
 	return mi
 
 func _build_plant(u: Dictionary) -> void:
-	var p := tile_to_world(u.pos as Vector2 + Vector2(0.5, 0.5))
 	var big := str(u.kind) == "coal" or str(u.kind) == "nuclear"
-	var away := Vector2.ZERO   # behind the yard, away from the lines that leave it, so no conductor runs into a tower
-	for l in model.lines:
-		var pts: Array = l.pts
-		if pts.size() < 2: continue
-		if (pts[0] as Vector2).distance_to(u.pos) < 0.6: away -= ((pts[1] as Vector2) - (pts[0] as Vector2)).normalized()
-		elif (pts[pts.size() - 1] as Vector2).distance_to(u.pos) < 0.6: away -= ((pts[pts.size() - 2] as Vector2) - (pts[pts.size() - 1] as Vector2)).normalized()
-	away = away.normalized() if away.length() > 0.01 else Vector2(-0.8, -0.6)
-	var ps := _job_plant_scale()
-	var off := Vector3(away.x, 0.0, away.y) * 260.0 * (1.0 + 0.6 * (ps - 1.0))
-	var n := Node3D.new(); n.name = "Plant_%s" % u.id; n.scale = Vector3.ONE * ps; n.position = Vector3(p.x + off.x, ground(p.x + off.x, p.z + off.z) - 0.5, p.z + off.z); n.rotation.y = -atan2(away.y, away.x); _root_infra.add_child(n)
+	var po := _plant_pose(u)
+	var away: Vector2 = po.away; var ps: float = po.scale; var po3: Vector3 = po.origin
+	var n := Node3D.new(); n.name = "Plant_%s" % u.id; n.scale = Vector3.ONE * ps; n.position = Vector3(po3.x, ground(po3.x, po3.z) - 0.5, po3.z); n.rotation.y = -atan2(away.y, away.x); _root_infra.add_child(n)
 	var conc := StandardMaterial3D.new(); conc.albedo_color = Color(0.74, 0.73, 0.7); conc.roughness = 0.95
 	var clad := ShaderMaterial.new(); clad.shader = load("res://world3d/shaders/clad.gdshader")   # 11-28b: ribbed, seamed, streaked cladding (was a flat grey box)
 	clad.set_shader_parameter("base", Color(0.46, 0.50, 0.53) if big else Color(0.58, 0.60, 0.61)); clad.set_shader_parameter("grime", _tex("rock_rough"))
@@ -1396,7 +1406,7 @@ func _line_by_id(id: String) -> Dictionary:
 
 func _build_lines() -> void:
 	for c in _root_dyn.get_children(): c.queue_free()
-	_wire_glow.clear(); _cable = {}; _warn_l.clear()
+	_wire_glow.clear(); _cable = {}; _warn_l.clear(); _towers = {}
 	var wire_mat := StandardMaterial3D.new(); wire_mat.albedo_color = Color(0.52, 0.54, 0.56); wire_mat.metallic = 0.8; wire_mat.roughness = 0.35
 	var pole_mat := StandardMaterial3D.new(); pole_mat.vertex_color_use_as_albedo = true; pole_mat.roughness = 0.75
 	var meshes := {}
@@ -1453,6 +1463,8 @@ func _build_pole_line(l: Dictionary, wire_mat: Material, pole_mat: Material, mes
 	var acc := 0.0
 	for k in range(pts.size() - 1):
 		var a: Vector2 = (pts[k] as Vector2 + Vector2(0.5, 0.5)) * tm; var b: Vector2 = (pts[k + 1] as Vector2 + Vector2(0.5, 0.5)) * tm
+		if k == 0 and _plant_edge(pts[0]) != null: a = _plant_edge(pts[0])
+		if k == pts.size() - 2 and _plant_edge(pts[k + 1]) != null: b = _plant_edge(pts[k + 1])
 		var n := maxi(1, int(round(a.distance_to(b) / 80.0)))
 		for q in range(0 if k == 0 else 1, n + 1):
 			var m := a.lerp(b, float(q) / n)
@@ -1487,8 +1499,8 @@ func _build_tower_line(l: Dictionary, wire_mat: Material, meshes: Dictionary) ->
 	for k in range(pts.size() - 1):
 		var a: Vector2 = (pts[k] as Vector2 + Vector2(0.5, 0.5)) * tm; var b: Vector2 = (pts[k + 1] as Vector2 + Vector2(0.5, 0.5)) * tm
 		var dv := (b - a).normalized()
-		if k == 0: a += dv * ring
-		if k == pts.size() - 2: b -= dv * ring
+		if k == 0: a = (_plant_edge(pts[0]) if _plant_edge(pts[0]) != null else a + dv * ring)
+		if k == pts.size() - 2: b = (_plant_edge(pts[pts.size() - 1]) if _plant_edge(pts[pts.size() - 1]) != null else b - dv * ring)
 		var n := maxi(1, int(round(a.distance_to(b) / 330.0)))
 		for q in range(0 if k == 0 else 1, n + 1):
 			var m := a.lerp(b, float(q) / n)
@@ -1505,6 +1517,8 @@ func _build_tower_line(l: Dictionary, wire_mat: Material, meshes: Dictionary) ->
 				Props3D.add_wire(sg, prev[1], att[1], sag, 0.3, acc); Props3D.add_wire(sg, prev[4], att[4], sag, 0.3, acc)
 				acc += span
 			prev = att
+	var tb := PackedVector3Array(); for xf in xfs: tb.append((xf as Transform3D).origin)
+	_towers[str(l.id)] = tb
 	var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.mesh = tw[0]; mm.instance_count = xfs.size()
 	for k in xfs.size(): mm.set_instance_transform(k, xfs[k])
 	var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = tmat; _root_dyn.add_child(mi)
