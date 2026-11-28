@@ -58,6 +58,11 @@ each licence page is checked before commit; every file goes into docs/ASSETS.md 
 6. NOTES current after each family; commit and push per family. Stop to ask only if a benchmark fails 7 after two rounds.
 
 ## Status (latest first)
+- 11-28 night: PROVINCE BENCHMARK round 1 (81dfa52, 3bdd695; Kofi): art director WO-17 4 -> 5 (report 4, night 5),
+  WO-16 3 -> 3 (night 4). Near houses better; far towns a salmon smear; no street lights; WO-17 report shows no shed;
+  lines thin. Stall fixed at its cause (music WAV encode, 098c34a). Round 2 in progress: far LOD colour, town cores,
+  street lamps and town glow, visible shed sector and loaded lines, house variety, lit plant. If round 2 misses 7, stop
+  and report what blocks it (manager rule). Also closed tonight: C04 (2634770), C08 (ab8f60d), C11 (a0e6c02).
 - 11-28 night (Kofi, programmer): TASK A done: the L23 low-tier ~470 ms frame was the music stems' WAV encode on the main thread about 10 s after launch, not assets (it appears on L10, high tier and the classic look too; CB_NOAUDIO=1 removes it); fixed in 098c34a (encode on the worker thread). CB_HITCH=<ms> logs frames over that time. TASK B (province benchmark) in progress: Kenney kit houses and blocks (near LOD, MultiMesh chunks, engine-driven lit panes/bays), Poly Haven trees (LOD0/LOD1, generated beyond 1.4 km), day HDRI sky, asphalt streets; shots in assets-province/. Not scored by the art director.
 - 11-28 night (Ingrid, while the province helper works): Q01 fixed (Retry replays every logged setting; tests/
   retry_truth.gd 99 checks, 36a24ba). Stall: the 470 ms frame was the music WAV encode on the main thread; moved to the
