@@ -970,15 +970,34 @@ func _lamps_with_sector(lamps: Array, centres: Array) -> Array:
 		out.append([l[0], l[1], l[2], idx])
 	return out
 
+## C20: the thin black sticks of the province were these poles, 7 m tall and 0.2 m thick, seen by day with their halo off; lamps standing inside the
+## city substation's yard (the streets run under it) are dropped, and the pole is a grey post with a lamp head (origin at the lamp).
+static var _pole_mesh: ArrayMesh
+static func _lamp_pole_mesh() -> ArrayMesh:
+	if _pole_mesh != null: return _pole_mesh
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	Props3D._cyl(st, Vector3(0, -7.1, 0), Vector3(0, -0.4, 0), 0.17, 0.10, 6, Color(0.4, 0.41, 0.43))
+	Props3D._cyl(st, Vector3(0, -0.45, 0), Vector3(0, -0.15, 0), 0.55, 0.40, 6, Color(0.46, 0.46, 0.48), true)   # the lamp head
+	st.generate_normals()
+	_pole_mesh = st.commit(); return _pole_mesh
+
+func _in_city_yard(x: float, z: float, margin := 4.0) -> bool:
+	for id in _subst:
+		var sd: Dictionary = _subst[id]; var d: Vector2 = sd.dir
+		var r := Vector2(x - (sd.p as Vector3).x, z - (sd.p as Vector3).z)
+		if absf(r.dot(d)) < 13.0 * CITY_YARD_SCALE + margin and absf(r.dot(Vector2(-d.y, d.x))) < 9.0 * CITY_YARD_SCALE + margin: return true
+	return false
+
 func _build_town_lamps(lamp_list: Array) -> void:
 	var by_town := {}
 	for l in lamp_list:
+		if _in_city_yard(float(l[0].x), float(l[0].z)): continue
 		var id: String = l[1]
 		if not by_town.has(id): by_town[id] = []
 		by_town[id].append(l)
 	var sph := _lamp_mesh()
-	var pole_m := CylinderMesh.new(); pole_m.top_radius = 0.08; pole_m.bottom_radius = 0.12; pole_m.height = 7.0; pole_m.radial_segments = 5
-	var pole_mat := StandardMaterial3D.new(); pole_mat.albedo_color = Color(0.25, 0.26, 0.28); pole_mat.metallic = 0.5
+	var pole_m := _lamp_pole_mesh()
+	var pole_mat := StandardMaterial3D.new(); pole_mat.vertex_color_use_as_albedo = true; pole_mat.roughness = 0.7; pole_mat.metallic = 0.1   # C20: a lit grey pole with a lamp head, not a black stick
 	for id in by_town:
 		var ls: Array = by_town[id]
 		if quality == "low": ls = ls.filter(func(l): return (int(absf(l[0].x * 0.37 + l[0].z * 0.91)) % 4) == 0)   # a quarter of the lamps on the low tier
@@ -990,7 +1009,7 @@ func _build_town_lamps(lamp_list: Array) -> void:
 		for k in ls.size():
 			var lp: Vector3 = ls[k][0]
 			var xf := Transform3D(Basis(), lp); xfs.append(xf); dns.append(float(ls[k][2])); sec.append(int(ls[k][3]) if (ls[k] as Array).size() > 3 else -1)
-			mm.set_instance_transform(k, xf); pm2.set_instance_transform(k, Transform3D(Basis(), lp - Vector3(0, 3.6, 0)))
+			mm.set_instance_transform(k, xf); pm2.set_instance_transform(k, Transform3D(Basis(), lp))
 			c += lp
 		c /= maxf(1.0, float(ls.size()))
 		var pmi := MultiMeshInstance3D.new(); pmi.multimesh = pm2; pmi.material_override = pole_mat; pmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_infra.add_child(pmi)

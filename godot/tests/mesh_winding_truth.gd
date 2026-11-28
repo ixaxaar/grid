@@ -29,7 +29,7 @@ func _glb_files(dir: String, out: Array) -> void:
 
 func _initialize() -> void:
 	var fails: Array = []
-	var meshes := {"Props3D.house": Props3D.house(), "Props3D.block": Props3D.block(), "Props3D.transformer": Props3D.transformer(),
+	var meshes := {"Props3D.house": Props3D.house(), "Props3D.block": Props3D.block(), "Props3D.transformer": Props3D.transformer(), "Province3D.lamp_pole": Province3D._lamp_pole_mesh(),
 		"Bay3D.house_mesh": Bay3D.house_mesh(7.0, 6.0, 3.2, 2.0, Color.WHITE, Color.RED), "Bay3D.house_mesh_small": Bay3D.house_mesh(5.0, 4.0, 2.6, 1.6, Color.WHITE, Color.RED)}
 	# the bare triangle helper itself, on a known outward face (a roof slope facing up and north)
 	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
