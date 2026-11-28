@@ -17,6 +17,14 @@ static func l01_hut_pos(d: float) -> Vector2:
 	var vertical := (L01_BEACH_Y - L01_HAMLET.y) * 10.0
 	return Vector2(L01_HAMLET.x - (d - vertical) / 10.0, L01_BEACH_Y)
 
+## Presentation only (1128c province round 3): a job whose brief is about the evening peak opens its 3D view at that hour, before the player presses Run.
+## The engine's day, its clock and every number stay as they are; the dial and the radio read this hour while the job is fresh (instruments.gd, radio_log.gd),
+## and the scene returns to the engine's hour with the first block. Returns the minute of the day, or -1 when the job has no preview.
+const PREVIEW_MINUTE := {"L16": 1110.0}   # WO-16: the evening peak, drawn at 18:30 (the sunset glow; the brief reads the peak at 19:00)
+static func preview_minute(level: String, tick: int, level_start) -> float:
+	if not PREVIEW_MINUTE.has(level) or level_start == null: return -1.0
+	return float(PREVIEW_MINUTE[level]) if tick <= int(level_start) else -1.0
+
 static func empty() -> Dictionary:
 	return {"kind": "none", "level": "", "map": Vector2(26, 16), "minute": 0.0, "night": 1.0, "towns": [], "subs": [], "lines": [], "units": [], "shunts": [], "blackout": false, "terrain": {}, "routes": []}
 
@@ -33,6 +41,8 @@ static func build(b) -> Dictionary:
 	if wt is Dictionary and _known_terrain != "" and not _terrain_cache.has(str(wt.id)): _known_terrain = ""; w = b.q("world")   # a stale id: ask again in full
 	elif wt is Dictionary: _known_terrain = str(wt.id)
 	m.kind = str(w.kind); m.level = str(w.get("level", "")); m.blackout = bool(w.get("blackout", false))
+	var pv := -1.0 if qa_min != "" else preview_minute(str(m.level), int(clk.tick) if clk is Dictionary and not clk.is_empty() else 1 << 30, b.g.get("levelStart"))
+	if pv >= 0.0: m.minute = pv; m.night = WorldMath.night(pv); m["preview"] = true
 	m["solved"] = bool(w.get("solved", true))   # before the first solve nothing is "dark" yet: the grid has not been worked out
 	if w.kind == "bench": _bench(m, w)
 	elif w.kind == "grid": _grid(m, w, b)
@@ -81,7 +91,7 @@ static func _grid(m: Dictionary, w: Dictionary, b) -> void:
 	for bus in w.buses:
 		var p := Vector2(float(bus.x), float(bus.y)); pos[bus.id] = p; kvs[bus.id] = float(bus.kv); live[bus.id] = bool(bus.get("energised", true))
 		var v: float = float(vv[bus.id]) if vv.has(bus.id) else 0.0
-		if not vv.has(bus.id) and str(m.level) == "P0" and not bool(m.solved): v = 1.0   # 1.19: the prologue opens on a running grid at 02:00; the engine solves at the first block. Until then the city shows lit (labels give names only, as on any unsolved grid)
+		if not vv.has(bus.id) and (str(m.level) == "P0" or PREVIEW_MINUTE.has(str(m.level))) and not bool(m.solved): v = 1.0   # 1.19: the prologue opens on a running grid at 02:00; the engine solves at the first block. Until then the city shows lit (labels give names only, as on any unsolved grid)
 		if float(bus.demandMW) > 0.0 or float(bus.peakMW) > 0.0 or bus.kind == "load":
 			var n := clampi(6 + int((float(bus.peakMW) if float(bus.peakMW) > 0.0 else float(bus.demandMW)) / 4.0), 6, 40) if not has_terrain else 14   # 1.8: from the stable peak, not live demand (a heatwave above the peak changed the house count every tick, and every change rebuilt the whole map)   # a market town on the 50 m map: more roofs
 			m.towns.append(_town(str(bus.id), str(bus.name), p, n, v, float(bus.shed), "town", 0))

@@ -42,6 +42,10 @@ func _init() -> void:
 const STUDY_JOBS := ["L31", "L32", "L33", "L34", "L35", "L36"]
 func clock_on() -> bool: return not ShiftReport.holding()
 func _study() -> bool: return app != null and app.b != null and STUDY_JOBS.has(str(app.b.g.get("level", "")))
+## A job that previews its peak hour in the 3D view before Run (WorldModel.PREVIEW_MINUTE): the dial reads that hour, so it never contradicts the light.
+func preview_minute(c) -> float:
+	if app == null or app.b == null or not (c is Dictionary) or c.is_empty(): return -1.0
+	return WorldModel.preview_minute(str(app.b.g.get("level", "")), int(c.get("tick", 1 << 30)), app.b.g.get("levelStart"))
 
 func refresh() -> void:
 	if clock != null: clock.visible = clock_on()
@@ -52,7 +56,9 @@ func refresh() -> void:
 		var li = app.b.q("levelInfo"); var hz = li.get("horizonBlocks") if li is Dictionary and li.get("active", false) else null
 		if _study():
 			c = c.duplicate(); c["minuteOfDay"] = Stage8.sky_minute(str(app.b.g.get("level", "")).to_lower()); hz = null
-		clock.set_state(c, app.b.g.get("levelStart"), hz); clock.running = app.speed > 0 and not _study()
+		var pm := preview_minute(c)
+		if pm >= 0.0: c = c.duplicate(); c["minuteOfDay"] = pm; hz = null
+		clock.set_state(c, app.b.g.get("levelStart"), hz); clock.running = app.speed > 0 and not _study() and pm < 0.0
 	var w = app.b.q("world"); var kind: String = str(w.get("kind", "")) if w is Dictionary else ""
 	var bs = app.b.q("benchStatus") if kind == "bench" else null
 	var show_v: bool = bs is Dictionary and bs.get("active", false)

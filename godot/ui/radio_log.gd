@@ -32,7 +32,10 @@ func clock_text() -> String:
 		var c = app.b.q("clock")
 		var lv := str(app.b.g.get("level", ""))
 		if Instruments.STUDY_JOBS.has(lv): var sm := int(Stage8.sky_minute(lv.to_lower())); last_clock = "%02d:%02d" % [sm / 60, sm % 60]   # 1128c C04: the studies' radio reads the scene's hour, like the dial
-		elif c is Dictionary and not c.is_empty(): last_clock = "%02d:%02d" % [int(c.hour), int(c.minute)]
+		elif c is Dictionary and not c.is_empty():
+			var pm := WorldModel.preview_minute(lv, int(c.get("tick", 1 << 30)), app.b.g.get("levelStart"))   # the 3D view previews the peak hour before Run: the radio reads it too
+			if pm >= 0.0: last_clock = "%02d:%02d" % [int(pm) / 60, int(pm) % 60]
+			else: last_clock = "%02d:%02d" % [int(c.hour), int(c.minute)]
 	return last_clock
 
 func clear() -> void: lines.clear(); _current = ""; _rebuild()
