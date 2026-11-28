@@ -798,7 +798,10 @@ func _build_places(objs: Array) -> void:
 				var cm := _flat_mat(Color(0.8, 0.1, 0.1)); var cb := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(0.5, 2.0, 0.1); cb.mesh = bm; cb.material_override = cm; cb.position = Vector3(0, h * 0.62, d * 0.5 + 0.06); n.add_child(cb)
 				var cb2 := MeshInstance3D.new(); var bm2 := BoxMesh.new(); bm2.size = Vector3(2.0, 0.5, 0.1); cb2.mesh = bm2; cb2.material_override = cm; cb2.position = cb.position; n.add_child(cb2)
 			var pool := _pool(n, Vector3(0, 0.35, d * 0.5 + 2.0), 9.0 if role == "" else 14.0)
-			_homes.append({"ti": int(o.ti), "k": int(o.k), "light": lt, "mat": wm, "pool": pool})
+			# 1128c rollout: a street lamp at the front corner, its arm over the door; halo and pool lit with the home (_update_lights), dark when unserved
+			var grp := "bay_%d_%d" % [int(o.ti), int(o.k)]
+			Kit3D.street_lamp(n, Vector3(w * 0.5 + 2.2, -0.1, d * 0.5 + 3.4), PI, quality, grp, 5.2)
+			_homes.append({"ti": int(o.ti), "k": int(o.k), "light": lt, "mat": wm, "pool": pool, "group": grp})
 		elif t == "unit" and str(o.u.kind) == "hut": _build_hut(Vector3(x, y, z), bool(o.u.online))
 		elif t == "sub": _build_sub(Vector3(x, y, z))
 		elif t == "flag":
@@ -878,6 +881,7 @@ func _update_lights() -> void:
 		var lt: OmniLight3D = h.light; var mat: StandardMaterial3D = h.mat
 		lt.light_energy = b * HOME_LIGHT_E; lt.light_color = col; lt.visible = b > 0.003
 		mat.emission = col; mat.emission_energy_multiplier = b * 9.0
+		Kit3D.set_group(str(h.group), b > 0.003); Kit3D.set_level(str(h.group), b)
 		var pm: ShaderMaterial = h.pool; pm.set_shader_parameter("tint", Color(col, 1.0)); pm.set_shader_parameter("power", b * 1.5)
 	if not _porch.is_empty():
 		var b := porch_brightness(model)
@@ -896,7 +900,7 @@ func lamp_report() -> Dictionary:
 	var homes: Array = []
 	for h in _homes:
 		var lt: OmniLight3D = h.light
-		homes.append({"town": model.towns[int(h.ti)].id, "k": int(h.k), "b": home_brightness(model, int(h.ti), int(h.k)), "light": lt.light_energy, "warm": lt.light_color.g > 0.7})
+		homes.append({"town": model.towns[int(h.ti)].id, "k": int(h.k), "b": home_brightness(model, int(h.ti), int(h.k)), "light": lt.light_energy, "warm": lt.light_color.g > 0.7, "lamp_on": Kit3D.group_on(str(h.group))})
 	var rep := {"homes": homes}
 	if not _porch.is_empty():
 		var lt: OmniLight3D = _porch.light

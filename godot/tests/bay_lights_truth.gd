@@ -15,7 +15,7 @@ func _initialize() -> void:
 	T.level("L01")
 	var bay := _scene(T)
 	T.check(bay.lamp_report().homes.size() == 10, "ten homes stand before anything is placed")
-	for h in bay.lamp_report().homes: T.check(float(h.b) == 0.0, "dark hamlet: brightness 0")
+	for h in bay.lamp_report().homes: T.check(float(h.b) == 0.0 and not bool(h.lamp_on), "dark hamlet: brightness 0 and the street lamp dark")
 	T.check(not bay.lamp_report().has("porch"), "no hut, no porch bulb")
 	bay.free()
 	# the Classic chip: only the levels the bay draws lose it
@@ -51,6 +51,7 @@ func _check(T: Truth, tag: String) -> void:
 	for h in rep.homes:
 		T.near(float(h.b), want, 1e-4, "%s: home brightness is (V/V0)^2" % tag)
 		T.near(float(h.light) / Bay3D.HOME_LIGHT_E, want, 1e-4, "%s: the Light3D energy follows" % tag)
+		T.check(bool(h.lamp_on) == (want > 0.003), "%s: the street lamp by a home is on exactly when the home is lit" % tag)
 		T.check(bool(h.warm) == (float(vs[0]) >= lim), "%s: warm iff V >= %.1f (V = %.2f)" % [tag, lim, float(vs[0])])
 	T.check(rep.has("porch"), "%s: the hut has a porch bulb" % tag)
 	T.near(float(rep.porch.b), (v0 / v0) * (v0 / v0), 1e-4, "%s: porch (V0/V0)^2 = 1" % tag)
