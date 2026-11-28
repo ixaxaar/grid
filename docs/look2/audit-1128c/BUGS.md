@@ -28,7 +28,7 @@ Severity: high = blocks play, wrong result, crash, data loss. med = visible glit
 | C07 | all 3D places | The camera could sit inside or right against a big solid (a plant wall filled half the frame). | med | roofs/province-houses-before-top-after-bottom.jpg (top half) | fixed 6a97062 + b3d6e15 (Kit3D.clear_eye, cached) |
 | C08 | WO-34 | The report says the whole substation went dark while the houses behind it stay lit. | med | sweep4 L34-3result.png | open |
 | C09 | WO-14 | The "Ashgrove" town label draws under the build tray (ghost text behind "Bank steps"). | low | sweep4 L14-1open.png | open |
-| C10 | Jobs list | "more" sits on top of the CHAPTER 2 header. | low | sweep4 TITLE-2jobs.png | open |
+| C10 | Jobs list | "more" sits on top of the CHAPTER 2 header. | low | sweep4 TITLE-2jobs.png | fixed: the "more" cue has its own strip under the list (paper_kit CueBox), q03/jobs-more-1080.jpg |
 | C11 | Career | "Set costs a quarter: trees lv / 1 $91,440" wraps mid-item; the colour-by legend is clipped at "red abo" (the legend clips on purpose; the full text is not reachable). | low | sweep4 CAREER-1open.png | open |
 | C12 | HUD | "Step 1 of 4" and the tray sub-labels measure about 15 px at 1080p, under the 16 px floor (art director's measurement; the text audit passes, so it does not measure these). | low | sweep4 any opening | open |
 | C13 | QA tool | The shot harness's mid frame equals the result frame on most jobs (ff=n runs to the end), so no mid-run or win state was captured. | low | sweep4 *-2mid.png | open (harness, not the game) |

@@ -207,10 +207,14 @@ class CueBox extends Control:
 		return vs.max_value - vs.page > 6.0 and vs.value + vs.page < vs.max_value - 6.0
 	func _process(_dt: float) -> void:
 		var m := more_below()
-		if m != _more: _more = m; ov.queue_redraw()
+		if m != _more:
+			_more = m; ov.queue_redraw()
+			sc.offset_bottom = -strip() if m else 0.0   # 1128c C10: the cue has its own strip under the list, so it never sits on a row or a chapter header
+	func strip() -> float: return float(GridTheme.fs(15)) + 14.0
 	func _paint() -> void:
 		if not _more: return
-		var sz := ov.size; var h := 54.0; var y0 := sz.y - h
+		var sz := ov.size; var h := 26.0 + strip(); var y0 := sz.y - h
+		ov.draw_rect(Rect2(Vector2(0, sz.y - strip()), Vector2(sz.x, strip())), Color(fade_col, 1.0))
 		ov.draw_polygon(PackedVector2Array([Vector2(0, y0), Vector2(sz.x, y0), Vector2(sz.x, sz.y), Vector2(0, sz.y)]), PackedColorArray([Color(fade_col, 0.0), Color(fade_col, 0.0), Color(fade_col, 1.0), Color(fade_col, 1.0)]))
 		var f := GridTheme.font("mono"); var fs := GridTheme.fs(15); var txt := TranslationServer.translate("UI_MORE")
 		var ts := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
