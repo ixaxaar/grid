@@ -289,6 +289,7 @@ func _lamp_post(p: Vector2, h := 7.0) -> Dictionary:
 	if quality != "low":
 		lt = OmniLight3D.new(); lt.omni_range = 26.0; lt.omni_attenuation = 0.55;   # 1128c: a visible pool
 		lt.light_energy = 0.0; lt.light_color = Color(1.0, 0.86, 0.62); lt.position = Vector3(1.5, h - 0.6, 0); lt.light_energy = 0.0; mi.add_child(lt)
+	Kit3D.glow(mi, Vector3(1.5, h - 0.1, 0), "yard_lamps", quality, h - 0.1)   # the province's halo and pool; its level is the bus voltage's brightness (_apply_l11)
 	var d := {"mat": bm, "light": lt}
 	_lamps.append(d); return d
 
@@ -370,6 +371,10 @@ func _build_l10() -> void:
 		var node := MeshInstance3D.new(); node.name = "Drop%d" % i; node.material_override = drop_mat; node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root.add_child(node)
 		var tag := MeshInstance3D.new(); tag.name = "Tag%d" % i; var sm := SphereMesh.new(); sm.radius = 0.3; sm.height = 0.6; tag.mesh = sm; tag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root.add_child(tag)
 		_drops.append({"node": node, "tag": tag, "ph": "", "from": Vector3.ZERO})
+	# 1128c rollout: a street lamp by every pole on the road in front of the houses; its halo, pool and light follow that pole's three homes (_apply_l10)
+	for k in 6:
+		var lx: float = (_poles[k] as Node3D).position.x + 4.7
+		Kit3D.street_lamp(_root, Vector3(lx, ground(lx, 8.2) - 0.1, 8.2), 0.0, quality, "l10_lamp%d" % k, 6.0)
 	# trees on the hill behind and the lots beyond the road
 	_trees(_tree_ok10, 300.0, 8.0)
 
@@ -724,6 +729,9 @@ func _apply_l10() -> void:
 		var lt = hm.light
 		if lt != null: (lt as OmniLight3D).light_energy = b * HOME_LIGHT_E * 0.7; (lt as OmniLight3D).light_color = col; (lt as OmniLight3D).visible = b > 0.003
 		_house_state.append({"v": v, "b": b})
+		if i % 3 == 2:   # the lamp by pole k is as bright as the mean of its three homes; with none lit it is off
+			var lo_b := (b + float(_house_state[i - 1].b) + float(_house_state[i - 2].b)) / 3.0
+			Kit3D.set_group("l10_lamp%d" % (i / 3), lo_b > 0.003); Kit3D.set_level("l10_lamp%d" % (i / 3), lo_b)
 	var h := neutral_heat(float(q.iNpct), float(q.neutral.loadPct)); var hc := heat_colour(h)
 	_neutral_core.emission = hc; _neutral_core.emission_energy_multiplier = 7.0 * pow(h, 1.3)
 	_neutral_core.albedo_color = Color(0.62, 0.62, 0.64).lerp(Color(0.35, 0.12, 0.08), h * 0.8)
@@ -739,6 +747,7 @@ func _apply_l11() -> void:
 	_bank_set(count, conn, snappedf(ratio, 0.05), burst)
 	var bus := clampf(float(q.vBusPu), 0.0, 1.3)
 	var lb := bulb_brightness(bus, 1.0)
+	Kit3D.set_level("yard_lamps", lb)
 	for l in _lamps:
 		(l.mat as StandardMaterial3D).emission_energy_multiplier = lb * LAMP_E
 		if l.light != null: (l.light as OmniLight3D).light_energy = lb * 1.4
@@ -787,6 +796,8 @@ func report() -> Dictionary:
 					if d < bd: bd = d; best = ph
 				dp.append(best if bd < 0.01 else "?")
 				we.append((_homes[i].mat as StandardMaterial3D).emission_energy_multiplier)
+			r["lamp_on"] = range(6).map(func(k): return Kit3D.group_on("l10_lamp%d" % k))
+			r["lamp_lvl"] = range(6).map(func(k): return float(Kit3D._lvl.get("l10_lamp%d" % k, 1.0)))
 			r["drop_phase"] = dp; r["window_e"] = we; r["poles"] = _poles.size(); r["homes"] = _homes.size()
 			r["neutral_glow"] = _neutral_core.emission_energy_multiplier if _neutral_core != null else 0.0
 			r["tags"] = _drops.map(func(d): return ((d.tag as MeshInstance3D).material_override == _pm.get(d.ph)))

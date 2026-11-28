@@ -108,6 +108,13 @@ func _l10(T: Truth) -> void:
 	for i in 18:
 		var ph := str(q.houses[i].phase); var v := float((q.vLevels[ph] as Array)[2 + i / 3])
 		T.near(float(rep.window_e[i]), Bench3D.bulb_brightness(v, float(q.nominalV)) * Bench3D.WINDOW_E, 1e-5, "L10: house %d's window is (V/230)^2 at %.1f V" % [i + 1, v])
+	# 1128c rollout: a street lamp by each pole, lit with its three houses (their mean brightness is its level), never lit when they are dark
+	T.check((rep.lamp_on as Array).size() == 6, "L10: a street lamp by each of the six poles")
+	for k in 6:
+		var mb := 0.0
+		for i in range(k * 3, k * 3 + 3): mb += Bench3D.bulb_brightness(float((q.vLevels[str(q.houses[i].phase)] as Array)[2 + i / 3]), float(q.nominalV)) / 3.0
+		T.near(float(rep.lamp_lvl[k]), clampf(mb, 0.0, 1.0), 1e-5, "L10: lamp %d's level is its houses' mean brightness (%.3f)" % [k + 1, mb])
+		T.check(bool(rep.lamp_on[k]) == (mb > 0.003), "L10: lamp %d is on exactly when its houses are lit" % (k + 1))
 	var vs: Array = []; for i in 18: vs.append(float((q.vLevels[str(q.houses[i].phase)] as Array)[2 + i / 3]))
 	var order_ok := true
 	for i in 18: for j in 18: if vs[i] < vs[j] - 1e-6 and float(rep.window_e[i]) > float(rep.window_e[j]) + 1e-6: order_ok = false
