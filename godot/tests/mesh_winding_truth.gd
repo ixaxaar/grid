@@ -23,6 +23,10 @@ func _check_mesh(nm: String, mesh: Mesh, fails: Array) -> int:
 			elif n.y > 0.5 and g.y <= 0.0: fails.append("%s tri %d: roof face points down" % [nm, t / 3])
 	return tris
 
+func _glb_files(dir: String, out: Array) -> void:
+	for f in DirAccess.get_files_at(dir): if f.ends_with(".glb"): out.append(dir + "/" + f)
+	for d in DirAccess.get_directories_at(dir): _glb_files(dir + "/" + d, out)
+
 func _initialize() -> void:
 	var fails: Array = []
 	var meshes := {"Props3D.house": Props3D.house(), "Props3D.block": Props3D.block(), "Props3D.transformer": Props3D.transformer(),
@@ -36,6 +40,13 @@ func _initialize() -> void:
 		meshes["Props3D._cyl %s" % ax] = sc.commit()
 	var sb := SurfaceTool.new(); sb.begin(Mesh.PRIMITIVE_TRIANGLES); Props3D._box(sb, Vector3(1, 2, 3), Vector3(2, 1, 4), Color.WHITE)
 	meshes["Props3D._box"] = sb.commit()
+	# CC0 asset pass: every imported .glb under world3d/assets (houses, trees, props) front faces outward too
+	var glbs: Array = []; _glb_files("res://world3d/assets", glbs); glbs.sort()
+	for gp in glbs:
+		var rel: String = (gp as String).trim_prefix("res://world3d/assets/").trim_suffix(".glb")
+		var es := Assets3D.meshes(rel)
+		if es.is_empty(): fails.append("%s: no meshes (not imported?)" % rel)
+		for e in es: meshes["%s/%s" % [rel, e.name]] = e.mesh
 	var total := 0
 	for k in meshes: total += _check_mesh(k, meshes[k], fails)
 	# the roof slopes of the province house must exist from outside: at least two up-facing front faces on each side of the ridge
@@ -49,6 +60,6 @@ func _initialize() -> void:
 			if (p0.z + p1.z + p2.z) < 0.0: up_n += 1
 			else: up_s += 1
 	if up_n < 2 or up_s < 2: fails.append("Props3D.house: roof slopes north %d / south %d front faces (want 2 each)" % [up_n, up_s])
-	for f in fails.slice(0, 20): print("  FAIL ", f)
+	for f in fails.slice(0, 20000): print("  FAIL ", f)
 	if fails.is_empty(): print("MESH-WINDING-TRUTH OK meshes=%d triangles=%d" % [meshes.size(), total]); quit(0)
 	else: print("MESH-WINDING-TRUTH FAILED %d faults" % fails.size()); quit(1)

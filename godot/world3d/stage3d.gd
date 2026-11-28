@@ -102,6 +102,7 @@ func _build_stage() -> void:
 	_plats = 0
 	_grass_tint = Vector3(0.62, 0.92, 0.50) if scn == "l11" else Vector3(0.86, 0.95, 0.70)
 	_yard_gravel = 1.0 if scn in ["l23", "l25", "l27"] else 0.0
+	real_gravel = scn == "l23"; real_sky = scn == "l23"
 	match scn:
 		"l10": _play = Rect2(-200.0, -70.0, 400.0, 140.0)
 		"l11": _play = Rect2(-100.0, -60.0, 220.0, 120.0)

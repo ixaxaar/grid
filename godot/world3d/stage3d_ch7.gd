@@ -187,6 +187,7 @@ static func build(s: Stage3D) -> void:
 		"l24": _build_l24(s)
 		"l25": _build_l25(s)
 		"l26": _build_l26(s)
+	s.real_trees = s.scn == "l23"   # CC0 asset pass benchmark (WO-23)
 	s._trees(func(x: float, z: float) -> float: return Stage7.tree_ok(s, x, z), 320.0, 8.0)
 	if s.scn in ["l24", "l25", "l26"]: _site_lights(s)
 
@@ -221,7 +222,7 @@ static func _build_board(s: Stage3D) -> void:
 	for i in 2:
 		var tx := -28.0 if i == 0 else 28.0
 		var n := Node3D.new(); n.name = "Transformer%d" % (i + 1); n.position = Vector3(tx, s.ground(tx, -20.0), -20.0); s._root.add_child(n)
-		s._box(n, Vector3(0, 0.1, 0), Vector3(10.0, 0.3, 9.0), s._soft_mat("sand", Color(0.52, 0.50, 0.46), 0.3, 0.3, 0.0, 0.2))
+		s._box(n, Vector3(0, 0.1, 0), Vector3(10.0, 0.3, 9.0), s._soft_mat("concrete" if s.scn == "l23" else "sand", Color(0.60, 0.60, 0.58) if s.scn == "l23" else Color(0.52, 0.50, 0.46), 0.3, 0.3 if s.scn != "l23" else 0.25, 0.0, 0.2))
 		Kit3D.power_transformer(n, Vector3(0, 0.2, 0), 0.0, 1.0)   # 1128c: a ribbed tank with radiators, bushings and a conservator (was a toy box)
 		for c in 3: s._inst(s._root, s._run([Vector3(tx - 0.0, 13.6, -39.0 + 3.0 * c), n.position + Vector3(-1.6 + 1.6 * c, 7.95, -0.6)], 0.07, 0.4), hv, "Drop%d_%d" % [i, c], Vector3.ZERO, false)
 		s._box(n, Vector3(-2.4, 2.6, 0.5), Vector3(0.7, 5.0, 0.7), cu, "LvBus")   # the secondary leads down to the board
@@ -263,8 +264,19 @@ static func _build_board(s: Stage3D) -> void:
 	var win := StandardMaterial3D.new(); win.albedo_color = Color(0.13, 0.17, 0.25); win.metallic = 0.3; win.roughness = 0.2; win.cull_mode = BaseMaterial3D.CULL_DISABLED; win.emission_enabled = true; win.emission = Bench3D.WARM; win.emission_energy_multiplier = 0.0
 	d["estate"] = win
 	var body := s._vc_mat(0.9); d["estate_body"] = body   # 1128c: one material for the estate walls, darkened in a blackout
+	var real := s.scn == "l23"   # CC0 asset pass: Kenney suburban houses with PBR walls and roofs; the lit/dark contract is unchanged
+	var hm: Dictionary = Assets3D.house_mats(win) if real else {}
+	d["estate_mats"] = hm
 	for k in 6:
 		var ex := -34.0 + 14.0 * float(k % 3); var ez := 74.0 + 18.0 * float(k / 3)
+		if real:
+			var hn := Assets3D.house(s._root, k, Vector3(ex, s.ground(ex, ez) - 0.1, ez), PI if k < 3 else 0.0, hm, s.quality)
+			hn.name = "Shed%d" % k
+			if s.quality != "low":   # a warm pool from the windows on the ground in front of each house
+				var wl := OmniLight3D.new(); wl.light_color = Color(1.0, 0.80, 0.52); wl.omni_range = 11.0; wl.omni_attenuation = 1.2; wl.shadow_enabled = false
+				wl.position = Vector3(0.0, 2.2, -5.0 if k < 3 else 5.0); hn.add_child(wl)
+				Kit3D._reg(wl, Kit3D._lamp_mat(Color.BLACK), 3.0, 0.0, "estate")
+			continue
 		var w := 11.0; var dd := 8.0; var h := 4.5
 		var n := Node3D.new(); n.name = "Shed%d" % k; n.position = Vector3(ex, s.ground(ex, ez) - 0.1, ez); n.rotation.y = PI if k < 3 else 0.0; s._root.add_child(n)
 		s._inst(n, Bay3D.house_mesh(w, dd, h, 2.0, Color(0.56, 0.53, 0.48), Color(0.30, 0.31, 0.34)), body, "Body")
@@ -285,13 +297,16 @@ static func _build_board(s: Stage3D) -> void:
 	var gyf := func(x: float, z: float) -> float: return s.ground(x, z)
 	Kit3D.fence(s._root, Rect2(-92.0, -46.0, 184.0, 60.0), gyf, [Vector2(-20.0, 14.0)])
 	for mp in [Vector2(-90.0, -44.0), Vector2(90.0, -44.0), Vector2(-90.0, 12.0), Vector2(90.0, 12.0), Vector2(0.0, -44.0)]:
-		Kit3D.flood_mast(s._root, Vector3(mp.x, s.ground(mp.x, mp.y), mp.y), Vector3(mp.x * 0.55, 0.0, mp.y * 0.4 - 12.0), s.quality, 16.0)
+		Kit3D.flood_mast(s._root, Vector3(mp.x, s.ground(mp.x, mp.y), mp.y), Vector3(mp.x * 0.55, 0.0, mp.y * 0.4 - 12.0), s.quality, 16.0, "site", 55.0, s.scn == "l23")
 	Kit3D.aviation(s._root, tw.position + Vector3(0, 24.6, 0))
 	for k in 6:
 		var lz := 22.0 + 14.0 * float(k); var lx := -26.0 if k % 2 == 0 else -14.0
-		Kit3D.street_lamp(s._root, Vector3(lx, s.ground(lx, lz) - 0.1, lz), PI * 0.5 if k % 2 == 0 else -PI * 0.5, s.quality, "estate")
+		var lyaw := PI * 0.5 if k % 2 == 0 else -PI * 0.5
+		if s.scn == "l23": Assets3D.street_lamp(s._root, Vector3(lx, s.ground(lx, lz) - 0.1, lz), lyaw, s.quality, "estate")
+		else: Kit3D.street_lamp(s._root, Vector3(lx, s.ground(lx, lz) - 0.1, lz), lyaw, s.quality, "estate")
 	Kit3D.van(s._root, Vector3(-8.0, s.ground(-8.0, 9.0), 9.0), 0.3)
 	Kit3D.van(s._root, Vector3(52.0, s.ground(52.0, 10.0), 10.0), -1.4, Color(0.92, 0.55, 0.12))
+	if s.scn == "l23": _dress_l23(s)
 	s.anchors["incomer"] = tw.position + Vector3(0, 26.0, 0)
 	s.anchors["xfmr"] = (d.tx[0] as Node3D).position + Vector3(0, 11.0, 0)
 	s.anchors["board"] = Vector3(-30.0, 8.5, 0.0)
@@ -300,6 +315,36 @@ static func _build_board(s: Stage3D) -> void:
 	s.anchors["feeder"] = Vector3(-20.0, 7.0, 5.6)
 	s.anchors["estate"] = Vector3(-20.0, 11.0, 82.0)
 	if s.scn == "l27": s.anchors["units"] = Vector3(0.0, 24.0, -62.0)
+
+## CC0 pass (WO-23): the estate's asphalt street, utility boxes and security lights round the switchgear, a covered car by the houses.
+static func _dress_l23(s: Stage3D) -> void:
+	var rd := Assets3D.pbr("asphalt", Color(0.62, 0.62, 0.64), 1.0); rd.uv1_triplanar = true; rd.uv1_world_triplanar = true; rd.uv1_scale = Vector3.ONE * 0.25
+	rd.texture_repeat = true
+	for seg in [[Vector2(-20.0, 14.0), Vector2(-20.0, 66.0), 6.0], [Vector2(-44.0, 83.0), Vector2(4.0, 83.0), 6.0]]:
+		var a: Vector2 = seg[0]; var b: Vector2 = seg[1]; var hw: float = float(seg[2]) * 0.5
+		var dir := (b - a).normalized(); var nr := Vector2(-dir.y, dir.x)
+		var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var nseg := int(a.distance_to(b) / 4.0)
+		for i in nseg:
+			var p0 := a.lerp(b, float(i) / nseg); var p1 := a.lerp(b, float(i + 1) / nseg)
+			var q := [p0 + nr * hw, p0 - nr * hw, p1 - nr * hw, p1 + nr * hw]
+			var v: Array = []
+			for pt in q: v.append(Vector3(pt.x, s.ground(pt.x, pt.y) + 0.06, pt.y))
+			st.set_normal(Vector3.UP)
+			for k in [0, 1, 2, 0, 2, 3]: st.add_vertex(v[k])   # front face up: clockwise from above for this order
+		s._inst(s._root, st.commit(), rd, "Street", Vector3.ZERO, false)
+	for k in 4:   # utility boxes behind the switchgear sections and by the gate
+		var p := [Vector2(-52.0, -5.0), Vector2(-8.0, -5.0), Vector2(8.0, -5.0), Vector2(52.0, -5.0)][k] as Vector2
+		Assets3D.prop(s._root, "utility_box_01", Vector3(p.x, s.ground(p.x, p.y), p.y), 0.0, 1.6)
+	for sx: float in [-1.0, 1.0]:   # a security light on the end wall of each section
+		var x := 30.0 * sx + 21.4 * sx; var lm := Kit3D._lamp_mat(Color(1.0, 0.9, 0.7))
+		var n := Assets3D.prop(s._root, "security_light", Vector3(x, 3.9, 0.0), PI * 0.5 * sx, 2.2, false)
+		Kit3D._reg(null, lm, 0.0, 6.0, "site")
+		for e in Assets3D.meshes("props/security_light"):
+			for mi in n.get_children():
+				for si in (e.mesh as Mesh).get_surface_count():
+					if Assets3D.mat_name(e.mesh, si).ends_with("_bulb") or Assets3D.mat_name(e.mesh, si).ends_with("_glass"): (mi as MeshInstance3D).set_surface_override_material(si, lm)
+	Assets3D.prop(s._root, "covered_car", Vector3(-3.0, s.ground(-3.0, 62.0), 62.0), 0.4, 1.0)
 
 ## The coupler between the sections: a closed bus duct, a reactor coil when there is one, or an open gap.
 static func _coupler_set(s: Stage3D, open: bool, reactor: float) -> void:
@@ -532,6 +577,7 @@ static func apply(s: Stage3D) -> void:
 			Kit3D.set_group("estate", not (rev and not ok))
 			d["failed"] = rev and not ok
 			(d.estate_body as StandardMaterial3D).albedo_color = Color(0.42, 0.44, 0.52) if (rev and not ok) else Color.WHITE
+			if not (d.estate_mats as Dictionary).is_empty(): Assets3D.dim_mats(d.estate_mats, rev and not ok)
 			d["dark"] = rev and not ok
 			d["rev"] = rev
 			if s.scn == "l27":

@@ -13,6 +13,10 @@ uniform float cloud_cover = 0.45;
 uniform vec3 cloud_lit : source_color = vec3(1.0, 0.85, 0.7);
 uniform vec3 cloud_dark : source_color = vec3(0.3, 0.32, 0.4);
 uniform vec3 moon_dir = vec3(0.3, 0.5, -0.8);
+uniform sampler2D pano : filter_linear_mipmap, repeat_enable;   // CC0 pass: Poly Haven Kloppenheim 02 (Pure Sky), a night sky with its own moon and stars
+uniform float pano_k = 0.0;        // 0 = the generated sky only
+uniform float pano_gain = 0.35;
+uniform vec2 pano_moon = vec2(0.62, 0.295);   // where the moon sits in the file: longitude and elevation (radians)
 uniform sampler2D noise : filter_linear_mipmap, repeat_enable;
 
 float h31(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -29,8 +33,17 @@ void sky() {
 		col += sun_glow * pow(c, 3.0) * 0.25 * dusk * (1.0 - clamp(up * 2.5, 0.0, 1.0));
 		if (c > 0.99965 && up > -0.02) col += LIGHT0_COLOR * 3.0 * (1.0 - night);
 	}
+	// the night panorama, turned in azimuth and tilted so its moon sits where the scene's moon light comes from
+	if (pano_k > 0.0 && night > 0.02 && up > -0.05) {
+		vec3 md = normalize(moon_dir);
+		float lon = atan(d.x, -d.z) - atan(md.x, -md.z) + pano_moon.x;
+		float el = asin(clamp(d.y, -1.0, 1.0)) - (asin(md.y) - pano_moon.y);
+		vec2 uv = vec2(lon / 6.2831853 + 0.5, 0.5 - el / 3.1415927);
+		vec3 pc = min(textureLod(pano, uv, 0.0).rgb, vec3(6.0)) * pano_gain;
+		col = mix(col, pc, night * pano_k * smoothstep(-0.05, 0.03, up));
+	}
 	// stars and the moon
-	if (night > 0.05 && up > 0.0) {
+	if (night > 0.05 && up > 0.0 && pano_k < 0.5) {
 		vec3 q = floor(d * 380.0);
 		float s = h31(q);
 		float star = step(0.9975, s) * (0.4 + 0.6 * h31(q + 1.7));

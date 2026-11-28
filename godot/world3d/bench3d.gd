@@ -85,6 +85,9 @@ var _flicker := 0.0               # 0..0.85: how deep the bulbs flicker
 var _flicker_hz := 0.0
 
 var _terrain_mat: ShaderMaterial
+var real_gravel := false   # same pass: the yard ground is a PBR gravel
+var real_sky := false     # the CC0 night panorama on the sky (WO-23)
+var real_trees := false   # the CC0 asset pass sets this before _trees (WO-23)
 var _yard_gravel := 0.0   # 1128c: stages with a substation yard set 1 (paved = gravel)
 
 func _ready() -> void: _setup()
@@ -157,6 +160,10 @@ func _update_sky(mn: float) -> void:
 	moon.light_energy = 1.0 * smoothstep(0.35, 0.85, n); moon.light_color = Color(0.80, 0.84, 0.96)
 	moon.shadow_enabled = quality == "high" and not sun.visible
 	sky_mat.set_shader_parameter("moon_dir", mdir)
+	if real_sky:
+		if sky_mat.get_shader_parameter("pano") == null: sky_mat.set_shader_parameter("pano", load("res://world3d/tex/sky_night_pano.hdr"))
+		sky_mat.set_shader_parameter("pano_k", 1.0)
+	else: sky_mat.set_shader_parameter("pano_k", 0.0)
 	env.ambient_light_color = Color(0.20, 0.27, 0.42).lerp(Color(0.34, 0.40, 0.55), d * (1.0 - n)).lerp(Color(0.15, 0.18, 0.26), n * 0.8)   # 11-28b: a neutral night, not blue
 	env.ambient_light_energy = lerpf(0.9, 0.5, n)
 	env.fog_light_color = hor.lerp(Color(0.46, 0.55, 0.72), 0.7 * d * (1.0 - n)).lerp(Color(0.08, 0.12, 0.22), n * 0.6)
@@ -349,6 +356,7 @@ func _build_terrain() -> void:
 	tmat.set_shader_parameter("sand_tint", Vector3(0.95, 0.93, 0.90))
 	if quality == "low": tmat.set_shader_parameter("cheap", true)
 	tmat.set_shader_parameter("yard_gravel", _yard_gravel)
+	if real_gravel and _tex("gravel_albedo") != null: tmat.set_shader_parameter("real_gravel", true); tmat.set_shader_parameter("gravel_a", _tex("gravel_albedo")); tmat.set_shader_parameter("gravel_n", _tex("gravel_normal"))
 	var mi := MeshInstance3D.new(); mi.name = "Land"; mi.mesh = mesh; mi.material_override = tmat; _root.add_child(mi)
 
 func _tex(n: String) -> Texture2D:
@@ -636,6 +644,7 @@ func _trees(ok: Callable, half: float, step: float) -> void:
 			else:
 				var s := 7.5 * age
 				bx.append(Transform3D(rot.scaled(Vector3(s, s * (0.9 + 0.2 * v), s)), Vector3(x, y - 0.2, z))); bc.append(Color(0.85 + 0.3 * v, 0.95 + 0.1 * v, 0.8))
+	if real_trees: Assets3D.trees(_root, cx, cc, bx, bc, quality); return   # CC0 asset pass: Poly Haven fir and small tree, LOD cells
 	_mm(Props3D.conifer(), cx, cc, "Conifers"); _mm(Props3D.broadleaf(), bx, bc, "Trees")
 
 func _mm(mesh: Mesh, xf: Array, cols: Array, nm: String) -> void:

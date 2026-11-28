@@ -54,11 +54,21 @@ vec3 tex2f(sampler2D t, vec2 p, float m, float g_mid, float g_far) {
 }
 vec3 nrm2(sampler2D t, vec2 p) { return texture(t, p).rgb; }
 
+uniform sampler2D gravel_a : source_color, filter_linear_mipmap_anisotropic, repeat_enable;   // CC0 pass: ambientCG Gravel023 for the substation yards
+uniform sampler2D gravel_n : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform bool real_gravel = false;
 uniform float yard_gravel = 0.0;   // 1128c: 1 = paved areas are a gravel substation yard (crushed stone, tyre tracks, damp patches)
 // paved ground: town gardens (dark green-grey) or a gravel yard: rock texture desaturated to stone grey, a fine speckle, wheel tracks
 vec3 yard(vec2 xz, vec2 p, float m, float m2, float g_mid, float g_far) {
 	vec3 town = mix(vec3(0.22, 0.27, 0.16), vec3(0.33, 0.32, 0.29), m2 * 0.6);
 	if (yard_gravel < 0.5) return town;
+	if (real_gravel) {
+		vec3 gr = tex2f(gravel_a, p * 4.0, m, g_mid, g_far);
+		float sp2 = h21(floor(xz * 3.0));
+		vec3 gg = gr * vec3(0.40, 0.395, 0.385) * (0.85 + 0.3 * sp2);
+		gg *= 1.0 - 0.25 * smoothstep(0.55, 0.75, texture(macro_noise, xz / 30.0).r);
+		return gg;
+	}
 	vec3 r = tex2f(rock_a, p * 2.4, m, g_mid, g_far);
 	float l = dot(r, vec3(0.333));
 	float sp = h21(floor(xz * 9.0));
@@ -151,7 +161,8 @@ void fragment() {
 	// wet sand / mud darkens near the waterline
 	col *= mix(0.62, 1.0, smoothstep(0.2, wet_top, wpos.y));
 
-	vec3 n = nrm2(grass_n, p) * (w.r + paved) + nrm2(forest_n, p * 1.3) * (w.g + mud) + nrm2(rock_n, p * 0.6) * w.b + nrm2(sand_n, p * 1.5) * w.a;
+	vec3 pn = real_gravel && yard_gravel > 0.5 ? nrm2(gravel_n, p * 4.0) : nrm2(grass_n, p);
+	vec3 n = nrm2(grass_n, p) * w.r + pn * paved + nrm2(forest_n, p * 1.3) * (w.g + mud) + nrm2(rock_n, p * 0.6) * w.b + nrm2(sand_n, p * 1.5) * w.a;
 	NORMAL_MAP = n;
 	NORMAL_MAP_DEPTH = 0.9 * (1.0 - smoothstep(150.0, 1500.0, vd));   // normal detail only up close: no specular sparkle far away
 	ALBEDO = col * cloud_shade(wpos.xz);

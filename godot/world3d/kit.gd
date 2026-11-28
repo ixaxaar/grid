@@ -52,18 +52,23 @@ static func _cyl(parent: Node3D, a: Vector3, h: float, r: float, m: Material) ->
 	mi.mesh = cm; mi.material_override = m; mi.position = a + Vector3(0, h * 0.5, 0); parent.add_child(mi); return mi
 
 ## A floodlight mast `h` m tall at `at` (ground level), its heads aimed at `aim` (a ground point). Sodium-white yard light.
-static func flood_mast(parent: Node3D, at: Vector3, aim: Vector3, quality: String, h := 14.0, group := "site", energy := 55.0) -> Node3D:
+static func flood_mast(parent: Node3D, at: Vector3, aim: Vector3, quality: String, h := 14.0, group := "site", energy := 55.0, real := false) -> Node3D:
 	var n := Node3D.new(); n.name = "FloodMast"; n.position = at; parent.add_child(n)
 	_cyl(n, Vector3.ZERO, h, 0.18, _steel())
 	_box(n, Vector3(0, h, 0), Vector3(1.6, 0.12, 0.12), _steel())
 	var dir := (aim - (at + Vector3(0, h, 0)))
 	var yaw := atan2(dir.x, dir.z)
 	var lm := _lamp_mat(Color(1.0, 0.88, 0.70))
-	for sx in [0.0]:
-		var head := Node3D.new(); head.position = Vector3(sx, h - 0.1, 0); head.rotation.y = yaw; n.add_child(head)
-		_box(head, Vector3(0, 0, 0.1), Vector3(0.7, 0.5, 0.25), _steel())
-		var face := _box(head, Vector3(0, -0.05, 0.24), Vector3(0.6, 0.4, 0.04), lm); face.rotation.x = deg_to_rad(-35.0)
-		face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if real:   # CC0 pass: a Poly Haven floodlight head (glass emissive, registered) on the arm
+		Assets3D.flood_head(n, Vector3(0, h - 0.1, 0.25), yaw, deg_to_rad(35.0), lm)
+		Assets3D.flood_head(n, Vector3(0.7, h - 0.1, 0.25), yaw, deg_to_rad(35.0), lm)
+		Assets3D.flood_head(n, Vector3(-0.7, h - 0.1, 0.25), yaw, deg_to_rad(35.0), lm)
+	else:
+		for sx in [0.0]:
+			var head := Node3D.new(); head.position = Vector3(sx, h - 0.1, 0); head.rotation.y = yaw; n.add_child(head)
+			_box(head, Vector3(0, 0, 0.1), Vector3(0.7, 0.5, 0.25), _steel())
+			var face := _box(head, Vector3(0, -0.05, 0.24), Vector3(0.6, 0.4, 0.04), lm); face.rotation.x = deg_to_rad(-35.0)
+			face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var sp: SpotLight3D = null
 	if quality != "low":
 		sp = SpotLight3D.new(); sp.light_color = Color(1.0, 0.93, 0.84); sp.spot_range = h * 5.0; sp.spot_angle = 42.0; sp.spot_attenuation = 1.0
