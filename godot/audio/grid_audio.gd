@@ -119,7 +119,7 @@ func start_music() -> void:
 	if headless or CbSettings.music_mode == "off": return
 	if _stems_players.is_empty():
 		if _stem_cache.is_empty():
-			if _thread == null: _thread = Thread.new(); _thread.start(func(): _stem_cache = GridMusic.render_track(_track))
+			if _thread == null: _thread = Thread.new(); _thread.start(func(): _stem_cache = _render_wavs(_track))
 		else: _build_music_players()
 	else:
 		for p in _stems_players.values():
@@ -191,7 +191,7 @@ func _process(delta: float) -> void:
 		_thread.wait_to_finish(); _thread = null
 		if _music_wanted: _build_music_players()
 		if _next_cache.is_empty() and not _stem_cache.is_empty():   # render the next track while this one plays
-			_thread = Thread.new(); var nxt := _track + 1; _thread.start(func(): _next_cache = GridMusic.render_track(nxt))
+			_thread = Thread.new(); var nxt := _track + 1; _thread.start(func(): _next_cache = _render_wavs(nxt))
 	if _music_wanted and _stems_players.has("pad") and not (_stems_players["pad"] as AudioStreamPlayer).playing and not _next_cache.is_empty() and (_thread == null or not _thread.is_alive()):
 		_next_track()
 	if not _stems_players.is_empty():
@@ -203,11 +203,18 @@ func _process(delta: float) -> void:
 			_stem_db[k] = move_toward(float(_stem_db[k]), tgt, 30.0 * delta)
 			p.volume_db = float(_stem_db[k])
 
+## A track's stems and their 16-bit streams, made on the worker thread: encoding three long stems on the main thread cost a 470 ms frame when the first track was ready.
+static func _render_wavs(i: int) -> Dictionary:
+	var d := GridMusic.render_track(i); var w := {}
+	for k in ["pad", "perc", "lead"]: w[k] = to_wav(d[k], MRATE, false)
+	d["wav"] = w
+	return d
+
 func _build_music_players() -> void:
 	if _stem_cache.is_empty() or not _stems_players.is_empty(): return
 	for k in ["pad", "perc", "lead"]:
 		var p := AudioStreamPlayer.new(); p.bus = "Music"; p.volume_db = -80.0 if k != "pad" else float(_stem_db.get(k, -80.0))
-		p.stream = to_wav(_stem_cache[k], MRATE, false); add_child(p); _stems_players[k] = p
+		p.stream = (_stem_cache.wav[k] as AudioStreamWAV) if _stem_cache.has("wav") else to_wav(_stem_cache[k], MRATE, false); add_child(p); _stems_players[k] = p
 	for p in _stems_players.values(): p.play()
 
 ## The track ended: swap in the pre-rendered next one (the stems' own fades make the join) and start rendering the one after.
@@ -216,7 +223,7 @@ func _next_track() -> void:
 	_stems_players.clear()
 	_track = posmod(_track + 1, GridMusic.count()); _stem_cache = _next_cache; _next_cache = {}
 	_build_music_players()
-	_thread = Thread.new(); var nxt := _track + 1; _thread.start(func(): _next_cache = GridMusic.render_track(nxt))
+	_thread = Thread.new(); var nxt := _track + 1; _thread.start(func(): _next_cache = _render_wavs(nxt))
 
 ## Title of the track now playing ("" before the first one is ready).
 func track_title() -> String: return str(_stem_cache.get("title", ""))

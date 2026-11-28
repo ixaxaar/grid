@@ -300,7 +300,12 @@ func _poll_tick() -> void:
 	banner.text = tr("MISSION_BANNER") % [ms[0].title, ms[0].get("lesson", "")]; _banner_life = 4.5; audio.play("win")
 	_claim()   # any further finished missions (rare)
 
+var _hitch_last := 0.0
+var _hitch_ms := float(OS.get_environment("CB_HITCH")) if OS.is_debug_build() else 0.0
 func _process(dt: float) -> void:
+	if _hitch_ms > 0.0 and (dt * 1000.0 > _hitch_ms or (Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0 > _hitch_ms and absf(Performance.get_monitor(Performance.TIME_PROCESS) - _hitch_last) > 0.001)):
+		_hitch_last = Performance.get_monitor(Performance.TIME_PROCESS)
+		print("CB_HITCH t=%.2f frame_ms=%.0f process_ms=%.0f level=%s" % [Time.get_ticks_msec() / 1000.0, dt * 1000.0, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, str(b.q("levelInfo").get("id", "-")) if started else "title"])   # frames over CB_HITCH ms, for stall hunts
 	_poll_tick()
 	super(dt)
 	if _bullet_until > 0 and Time.get_ticks_msec() > _bullet_until: _bullet_until = 0; cfg.tick_seconds = TICKS_NORMAL.duplicate()
