@@ -189,6 +189,12 @@ static func _pane_hash(vs: PackedVector3Array, ix: PackedInt32Array) -> PackedVe
 		out[i] = Vector2(WorldMath.hash2(r, 17, 4242), 0.0)
 	return out
 
+## Roof tints of healthy houses. None is a neutral grey: a shed sector is drawn in a cool dark shadow (house_kit and house shaders, shed_cast) and no healthy
+## roof may look like it (1128c P01). Near: multiplied on the tile texture (mean colour about 0.46, 0.27, 0.18); far: the colour itself.
+const ROOF_TINTS_NEAR := [Vector3(1.05, 0.62, 0.45), Vector3(0.42, 0.80, 1.55), Vector3(0.75, 0.60, 0.48)]   # terracotta, slate-blue, brown
+const ROOF_TINTS_FAR := [Vector3(0.50, 0.17, 0.11), Vector3(0.29, 0.34, 0.47), Vector3(0.42, 0.34, 0.26), Vector3(0.62, 0.55, 0.45)]   # terracotta, slate-blue, brown, tan
+const ROOF_SAT_MIN := 0.2   ## tests/province_shed_truth.gd: the least HSV saturation any healthy roof tint may have
+
 ## The four materials of the near house LOD, in KIT_SURFACES order (shaders/house_kit.gdshader). Province3D drives `night` on all of them.
 static func kit_house_mats(palette := "house_palette_albedo.png", grid := false) -> Array:
 	var sh: Shader = load("res://world3d/shaders/house_kit.gdshader")
@@ -200,6 +206,7 @@ static func kit_house_mats(palette := "house_palette_albedo.png", grid := false)
 		if set[0] != "": m.set_shader_parameter("alb", tex(set[0]))
 		if set[1] != "": m.set_shader_parameter("nrm", tex(set[1]))
 		if set[2] != "": m.set_shader_parameter("rgh", tex(set[2]))
+		m.set_shader_parameter("roof_tint", PackedVector3Array(ROOF_TINTS_NEAR))
 		out.append(m)
 	return out
 

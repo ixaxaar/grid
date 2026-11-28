@@ -14,6 +14,7 @@ uniform vec3 lamp : source_color = vec3(1.0, 0.70, 0.36);
 uniform float lamp_power = 2.4;
 uniform bool grid = false;   // blocks: the glass is long strips, so a lit room is a 3.2 m bay of the local wall grid, not a pane
 uniform float night = 0.0;   // set by Province3D from the operator clock
+uniform vec3 roof_tint[3];   // Assets3D.ROOF_TINTS_NEAR (terracotta, slate-blue, brown); no neutral grey: the shed cue below must be the only cool dark roof
 
 varying vec4 ic;
 varying float pane;
@@ -31,8 +32,8 @@ void vertex() {
 
 float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
-vec3 shed_tone(vec3 c, float shed) {   // shed by the engine while the town is live: cool and grey, a little darker
-	return mix(c, vec3(dot(c, vec3(0.3, 0.55, 0.15))) * vec3(0.80, 0.92, 1.08), 0.85 * shed) * (1.0 - 0.25 * shed);
+vec3 shed_tone(vec3 c, float shed) {   // shed by the engine while the town is live: in a cool shadow (darkened, blue-shifted), as if the sun did not reach it
+	return mix(c, mix(c, vec3(dot(c, vec3(0.3, 0.55, 0.15))) * vec3(0.62, 0.80, 1.20), 0.65) * 0.72, shed);
 }
 
 void fragment() {
@@ -45,10 +46,11 @@ void fragment() {
 		float flick = 0.85 + 0.15 * h21(vec2(pid * 7.0, ic.g));
 		ALBEDO = vec3(0.045, 0.055, 0.07) * (1.0 - 0.4 * dark); ROUGHNESS = 0.12; SPECULAR = 0.6;
 		float far = smoothstep(80.0, 700.0, length(VERTEX));   // a pane is a pixel from the province camera: it glows wider and brighter with distance, as the far LOD's windows do
-		EMISSION = lamp * lit * lamp_power * flick * (0.06 + smoothstep(0.15, 0.8, night)) * (1.0 + 2.6 * far);
+		float em = lit * lamp_power * flick * (0.06 + smoothstep(0.15, 0.8, night)) * (1.0 + 2.6 * far);
+		EMISSION = lamp * min(em, grid ? 2.6 : 6.0);   // r3 (P02): a core tower's lit bays summed to white blobs under the bloom; the emission is capped, the colour stays amber
 	} else if (mode == 2) {
 		float k = ic.g;
-		vec3 rc = k < 0.6 ? vec3(1.05, 0.62, 0.45) : (k < 0.85 ? vec3(0.55, 0.57, 0.62) : vec3(0.75, 0.6, 0.48));   // terracotta, slate, brown on the tile texture
+		vec3 rc = k < 0.6 ? roof_tint[0] : (k < 0.85 ? roof_tint[1] : roof_tint[2]);   // terracotta, slate-blue, brown on the tile texture
 		rc *= 0.8 + 0.4 * h21(vec2(ic.g * 91.0, 3.0));
 		ALBEDO = shed_tone(texture(alb, UV).rgb * rc * (1.0 - 0.45 * dark), shed);
 		ROUGHNESS = texture(rgh, UV).r * 0.95; SPECULAR = 0.3;

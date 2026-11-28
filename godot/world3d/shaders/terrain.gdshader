@@ -18,6 +18,11 @@ uniform sampler2D macro_noise : filter_linear_mipmap, repeat_enable;
 uniform float tile_m = 22.0;
 uniform float night = 0.0;
 uniform vec3 grass_tint = vec3(1.0);
+uniform vec3 grass_hue = vec3(1.0);   // 1128c r3: the CC0 grass is yellow-olive (hue 47 deg); the province pulls it to a fresh green
+uniform vec3 warm_drift = vec3(1.10, 1.04, 0.92);   // the macro colour drift's dry end (the province keeps it nearer to neutral: olive at noon)
+uniform vec3 crop_hue = vec3(1.0);    // multiplies the pasture and green-crop colours (the province: greener)
+uniform vec3 wheat_c = vec3(0.60, 0.51, 0.28);      // ripe grain and stubble (the province: a paler wheat)
+uniform vec3 stubble_c = vec3(0.52, 0.47, 0.33);
 uniform vec3 sand_tint = vec3(1.0);   // 1.18: the bay's beach is pale coral sand, not the province's grey shore
 uniform float fields = 1.0;    // 1.18: the island bay has no farm plots (0)
 uniform float wet_top = 2.2;   // 1.18: height (m) where wet sand ends; the bay's beach sits at 1 m
@@ -97,9 +102,9 @@ void fragment() {
 	w /= sum; mud /= sum; paved /= sum;
 
 	if (cheap) {
-		vec3 cc = texture(grass_a, p).rgb * grass_tint * w.r + texture(forest_a, p * 1.3).rgb * vec3(0.55, 0.62, 0.45) * w.g + texture(rock_a, p * 0.6).rgb * w.b
+		vec3 cc = texture(grass_a, p).rgb * grass_hue * grass_tint * w.r + texture(forest_a, p * 1.3).rgb * vec3(0.55, 0.62, 0.45) * w.g + texture(rock_a, p * 0.6).rgb * w.b
 			+ texture(sand_a, p * 1.5).rgb * sand_tint * w.a + texture(mud_a, p).rgb * mud + vec3(0.26, 0.29, 0.20) * paved;
-		cc *= mix(vec3(0.86, 0.92, 0.80), vec3(1.10, 1.04, 0.92), m1);
+		cc *= mix(vec3(0.86, 0.92, 0.80), warm_drift, m1);
 		ALBEDO = cc * mix(0.62, 1.0, smoothstep(0.2, wet_top, wpos.y)) * cloud_shade(wpos.xz); ROUGHNESS = 0.92; SPECULAR = 0.25;
 	} else {
 	// 11-28b (audit: the Voronoi plots read as the old low-poly map): farmland as rectangular strip fields, the way a field system looks
@@ -126,7 +131,7 @@ void fragment() {
 	float tram_d = abs(fract(r.x / 24.0 + 0.5) - 0.5) * 24.0;  // metres to the nearest tramline
 	float tram = clamp((0.9 - tram_d) / px + 0.5, 0.0, 1.0) * min(1.0, 1.8 / px) * (1.0 - smoothstep(1500.0, 4500.0, vd));
 	float rows = (0.5 + 0.5 * sin(r.x * 6.2832 / 2.5)) * (1.0 - smoothstep(0.25, 1.0, px));   // crop rows, only where a pixel is smaller than a row
-	vec3 g = tex2f(grass_a, p, m, g_mid, g_far);
+	vec3 g = tex2f(grass_a, p, m, g_mid, g_far) * grass_hue;
 	vec3 plot = g;
 	float lum = dot(g, vec3(0.33));
 	// 1128c: an aerial-photo palette (the pastel creams read as a board game): deeper greens, honest soil browns, muted gold;
@@ -134,11 +139,11 @@ void fragment() {
 	vec2 rr = vec2(r.x / 9.0, ry / 140.0);
 	float streak = texture(macro_noise, rr * 0.11 + cell * 0.21).r;
 	float drift = texture(macro_noise, wpos.xz / 160.0 + cell * 0.13).r;
-	if (crop < 0.26) plot = vec3(0.25, 0.38, 0.14) * (0.8 + 0.7 * lum);                                                 // pasture
-	else if (crop < 0.42) plot = vec3(0.60, 0.51, 0.28) * (0.75 + 0.6 * lum) * (1.0 - 0.12 * rows - 0.22 * tram);   // ripe grain
+	if (crop < 0.26) plot = vec3(0.25, 0.38, 0.14) * crop_hue * (0.8 + 0.7 * lum);                                                 // pasture
+	else if (crop < 0.42) plot = wheat_c * (0.75 + 0.6 * lum) * (1.0 - 0.12 * rows - 0.22 * tram);   // ripe grain
 	else if (crop < 0.58) plot = mix(vec3(0.30, 0.23, 0.16), tex2f(field_a, r / 14.0, m, g_mid, g_far) * vec3(0.72, 0.58, 0.44), 0.55) * (1.0 - 0.25 * rows - 0.15 * tram);   // plough
-	else if (crop < 0.86) plot = mix(vec3(0.20, 0.34, 0.11), vec3(0.30, 0.42, 0.13), h21(cell + 3.0)) * (0.8 + 0.7 * lum) * (1.0 - 0.14 * rows - 0.25 * tram);   // green crops
-	else plot = vec3(0.52, 0.47, 0.33) * (0.8 + 0.6 * lum) * (1.0 - 0.1 * rows - 0.2 * tram);                       // stubble
+	else if (crop < 0.86) plot = mix(vec3(0.20, 0.34, 0.11), vec3(0.30, 0.42, 0.13), h21(cell + 3.0)) * crop_hue * (0.8 + 0.7 * lum) * (1.0 - 0.14 * rows - 0.25 * tram);   // green crops
+	else plot = stubble_c * (0.8 + 0.6 * lum) * (1.0 - 0.1 * rows - 0.2 * tram);                       // stubble
 	plot *= 0.84 + 0.3 * streak;
 	plot *= mix(vec3(0.94, 1.0, 0.94), vec3(1.05, 0.98, 0.92), drift);
 	plot = mix(vec3(dot(plot, vec3(0.3, 0.55, 0.15))), plot, 0.72);   // 1128c (art review): the quilt was loud; a third less saturation
@@ -157,7 +162,7 @@ void fragment() {
 		+ tex2f(mud_a, p, m, g_mid, g_far) * vec3(0.85, 0.9, 0.8) * mud
 		+ yard(wpos.xz, p, m, m2, g_mid, g_far) * paved;   // gardens and yards between the houses: a town reads darker than the fields around it, not as a pale disc
 	// macro colour drift: some hillsides drier, some lusher
-	col *= mix(vec3(0.86, 0.92, 0.80), vec3(1.10, 1.04, 0.92), m1);
+	col *= mix(vec3(0.86, 0.92, 0.80), warm_drift, m1);
 	// wet sand / mud darkens near the waterline
 	col *= mix(0.62, 1.0, smoothstep(0.2, wet_top, wpos.y));
 
