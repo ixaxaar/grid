@@ -381,6 +381,7 @@ static func street_lamp(parent: Node3D, at: Vector3, yaw: float, quality: String
 		lt = OmniLight3D.new(); lt.light_color = Color(1.0, 0.72, 0.42); lt.omni_range = h * 3.2; lt.omni_attenuation = 1.0; lt.shadow_enabled = false
 		lt.position = bc - Vector3(0, 0.4, 0); n.add_child(lt)
 	Kit3D._reg(lt, lm, 16.0, 6.0, group)
+	if Kit3D._halo_here(at, quality): Kit3D.glow(n, bc, group, quality, bc.y)   # the province's halo and road pool, dark with the group
 	return n
 
 ## A floodlight head (Poly Haven Flood Lights, wall light) on a mast top, aimed along yaw / pitch; its glass is the registered emissive.

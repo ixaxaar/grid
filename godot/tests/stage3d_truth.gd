@@ -220,9 +220,11 @@ func _l23(T: Truth) -> void:
 		if bool(dd.over): n_over += 1
 	T.check(n_over > 0 and (rep.smoke as Array).size() == n_over, "L23: the naive board has %d breakers over their duty and they smoke (%s)" % [n_over, str(rep.smoke)])
 	T.check(not bool(q.ok) and float(rep.estate_e) == 0.0, "L23: the estate's windows are dark when the engine says the board fails")
+	T.check(not bool(rep.estate_lamps), "L23: the estate's street lamps (and their halos) are dark with its windows in the blackout")
 	T.level("L23"); sg.set_stage(T.b.q("ch7Study"), 1110.0)
 	q = _a7(T, sg, "setBreakerRating", [40.0]); q = _run7(T, sg); rep = sg.report()
 	T.check(bool(q.ok) and (rep.smoke as Array).is_empty() and float(rep.estate_e) > 1.0, "L23: a 40 kA board holds: no smoke, the estate lit")
+	T.check(bool(rep.estate_lamps), "L23: a board that holds keeps the estate's lamps on")
 	_ground(T, sg, "L23")
 	sg.free()
 

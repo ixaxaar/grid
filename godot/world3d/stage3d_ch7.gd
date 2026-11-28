@@ -301,7 +301,7 @@ static func _build_board(s: Stage3D) -> void:
 	Kit3D.fence(s._root, Rect2(-92.0, -46.0, 184.0, 60.0), gyf, [Vector2(-20.0, 14.0)])
 	for mp in [Vector2(-90.0, -44.0), Vector2(90.0, -44.0), Vector2(-90.0, 12.0), Vector2(90.0, 12.0), Vector2(0.0, -44.0)]:
 		Kit3D.flood_mast(s._root, Vector3(mp.x, s.ground(mp.x, mp.y), mp.y), Vector3(mp.x * 0.55, 0.0, mp.y * 0.4 - 12.0), s.quality, 16.0, "site", 55.0, s.scn == "l23")
-	Kit3D.aviation(s._root, tw.position + Vector3(0, 24.6, 0))
+	Kit3D.aviation(s._root, tw.position + Vector3(0, 24.6, 0), s.quality)
 	for k in 6:
 		var lz := 22.0 + 14.0 * float(k); var lx := -26.0 if k % 2 == 0 else -14.0
 		var lyaw := PI * 0.5 if k % 2 == 0 else -PI * 0.5
@@ -736,6 +736,7 @@ static func report(s: Stage3D) -> Dictionary:
 			r["over"] = over
 			r["smoke"] = d.kiosk.keys().filter(func(id): return (d.kiosk[id].puff as MeshInstance3D).visible)
 			r["estate_e"] = (d.estate as StandardMaterial3D).emission_energy_multiplier
+			r["estate_lamps"] = Kit3D.group_on("estate")
 			r["kiosks"] = d.kiosk.size()
 			if s.scn == "l27": r["unit_share"] = (d.units as Array).map(func(u): return float(u.share))
 		"l24":

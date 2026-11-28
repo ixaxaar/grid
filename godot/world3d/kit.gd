@@ -7,7 +7,10 @@ extends RefCounted
 
 static var _lights: Array = []    # {light: weakref, mat: weakref, e: float, em: float, group: String}
 static var _off: Dictionary = {}  # group -> true when switched off
+static var _lvl: Dictionary = {}  # group -> 0..1 brightness (a home's voltage): default 1
 static var _nk := 0.0
+static var _halos: Array = []     # {mats: [weakref], group}: the halo and pool materials of a lamp group (lamp_glow.gdshader)
+static var _halo_cache: Dictionary = {}   # key -> ArrayMesh: one mesh per group, kind and drop, shared by every lamp of the group
 
 static func _reg(light: Light3D, mat: StandardMaterial3D, e: float, em: float, group: String) -> void:
 	_lights = _lights.filter(func(d): return (d.mat as WeakRef).get_ref() != null)
@@ -15,25 +18,82 @@ static func _reg(light: Light3D, mat: StandardMaterial3D, e: float, em: float, g
 	_apply_one(_lights[_lights.size() - 1])
 
 static func _apply_one(d: Dictionary) -> void:
-	var on := 0.0 if _off.get(d.group, false) else smoothstep(0.05, 0.5, _nk)
+	var on := _on(d.group)
 	var m = (d.mat as WeakRef).get_ref()
 	if m != null: (m as StandardMaterial3D).emission_energy_multiplier = d.em * on
 	if d.light != null:
 		var l = (d.light as WeakRef).get_ref()
 		if l != null: (l as Light3D).light_energy = d.e * on; (l as Light3D).visible = on > 0.01
 
+## How lit a group is now: 0 by day, switched off, or in a blackout; else the night factor times its level.
+static func _on(group: String) -> float:
+	return 0.0 if _off.get(group, false) else smoothstep(0.05, 0.5, _nk) * float(_lvl.get(group, 1.0))
+
+## What a truth test reads: is the group's lamp lit at night (not switched off, level above zero)?
+static func group_on(group: String) -> bool: return not _off.get(group, false) and float(_lvl.get(group, 1.0)) > 0.0
+
+static func _apply_halo(h: Dictionary) -> void:
+	var on := _on(h.group)
+	for w in h.mats:
+		var m = (w as WeakRef).get_ref()
+		if m != null: (m as ShaderMaterial).set_shader_parameter("lit", on)
+
 ## Called by Look3D.grade with the night factor.
 static func night(nk: float) -> void:
 	_nk = nk
 	for d in _lights: _apply_one(d)
+	for h in _halos: _apply_halo(h)
+
+static func _refresh(group: String) -> void:
+	for d in _lights: if d.group == group: _apply_one(d)
+	for h in _halos: if h.group == group: _apply_halo(h)
 
 static func set_group(group: String, on: bool) -> void:
 	if bool(_off.get(group, false)) == (not on): return
 	_off[group] = not on
-	for d in _lights: if d.group == group: _apply_one(d)
+	_refresh(group)
+
+## A group's brightness 0..1 (a home's lamp at its voltage): the emission, the light and the halo follow it.
+static func set_level(group: String, level: float) -> void:
+	var l := clampf(level, 0.0, 1.0)
+	if is_equal_approx(float(_lvl.get(group, 1.0)), l): return
+	_lvl[group] = l
+	_refresh(group)
 
 static func reset() -> void:
-	_lights.clear(); _off.clear()
+	_lights.clear(); _off.clear(); _lvl.clear(); _halos.clear(); _halo_cache.clear()
+
+## A lamp's glow as the province draws it (lamp_glow.gdshader): a billboard halo at `at` in `parent`, and, above the low tier and when `head_h`
+## (the lamp head's height over the ground in `parent`'s units) is given, a flat sodium pool on the ground under it. The mesh and its two materials are
+## shared by every lamp of the group, so one switch (set_group) and one night factor drive them all; the halo is not lit by day.
+static func glow(parent: Node3D, at: Vector3, group: String, quality: String, head_h := -1.0, tint := Color(1.0, 0.62, 0.28), gain := 1.6, size_k := 0.0042) -> MeshInstance3D:
+	var pool := head_h > 0.0 and quality != "low"
+	var key := "%s|%s|%.1f|%s|%.2f|%.4f" % [group, str(pool), head_h if pool else 0.0, tint.to_html(false), gain, size_k]
+	if not _halo_cache.has(key):
+		var am := ArrayMesh.new(); var mats: Array = []
+		for mode in (2 if pool else 1):
+			var a := []; a.resize(Mesh.ARRAY_MAX)
+			var vs: PackedVector3Array
+			if mode == 0: vs = PackedVector3Array([Vector3(-1, -1, 0), Vector3(1, -1, 0), Vector3(1, 1, 0), Vector3(-1, 1, 0)])
+			else:
+				var py := 0.3 - head_h
+				vs = PackedVector3Array([Vector3(-11, py, -11), Vector3(11, py, -11), Vector3(11, py, 11), Vector3(-11, py, 11)])
+			a[Mesh.ARRAY_VERTEX] = vs; a[Mesh.ARRAY_INDEX] = PackedInt32Array([0, 1, 2, 0, 2, 3])
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+			var m := ShaderMaterial.new(); m.shader = load("res://world3d/shaders/lamp_glow.gdshader")
+			m.set_shader_parameter("mode", mode); m.set_shader_parameter("tint", tint); m.set_shader_parameter("gain", gain); m.set_shader_parameter("size_k", size_k)
+			m.set_shader_parameter("night", 1.0); m.set_shader_parameter("lit", 0.0)
+			am.surface_set_material(mode, m); mats.append(weakref(m))
+		_halo_cache[key] = am
+		var h := {"mats": mats, "group": group}
+		_halos.append(h); _apply_halo(h)
+	var mi := MeshInstance3D.new(); mi.name = "Glow"; mi.mesh = _halo_cache[key]; mi.position = at; mi.extra_cull_margin = 40.0
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; parent.add_child(mi)
+	return mi
+
+## On the low tier only every other lamp of a street gets its halo (as the province keeps a quarter of its lamps); the choice is the lamp's position.
+static func _halo_here(at: Vector3, quality: String) -> bool:
+	return quality != "low" or (int(absf(at.x * 0.37 + at.z * 0.91)) % 2) == 0
 
 static func _lamp_mat(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.9, 0.9, 0.85); m.emission_enabled = true; m.emission = c; m.emission_energy_multiplier = 0.0
@@ -75,6 +135,7 @@ static func flood_mast(parent: Node3D, at: Vector3, aim: Vector3, quality: Strin
 		sp.spot_angle_attenuation = 1.4; sp.shadow_enabled = false; sp.light_specular = 0.4
 		n.add_child(sp); sp.position = Vector3(0, h - 0.3, 0)
 		if dir.length() > 0.1: sp.look_at_from_position(sp.position, sp.position + dir.normalized(), Vector3.UP)
+	glow(n, Vector3(0, h, 0.2), group, quality, -1.0, Color(1.0, 0.86, 0.66), 2.0, 0.0045)   # the mast head as a lamp from the camera, as the province's
 	_reg(sp, lm, energy, 3.0, group)   # Godot falls off as 1/d: 70 gives a lit yard 30-50 m out
 	return n
 
@@ -91,14 +152,16 @@ static func street_lamp(parent: Node3D, at: Vector3, yaw: float, quality: String
 		lt = OmniLight3D.new(); lt.light_color = Color(1.0, 0.72, 0.42); lt.omni_range = h * 3.2; lt.omni_attenuation = 1.0; lt.shadow_enabled = false
 		lt.position = Vector3(0, h - 0.5, 1.35); n.add_child(lt)
 	_reg(lt, lm, 16.0, 6.0, group)
+	if _halo_here(at, quality): glow(n, Vector3(0, h - 0.08, 1.35), group, quality, h - 0.08)   # province halo and road pool, dark with the group
 	return n
 
 ## A red aviation lamp on top of a mast or stack (slow blink is drawn by its emission only; no light).
-static func aviation(parent: Node3D, at: Vector3) -> void:
+static func aviation(parent: Node3D, at: Vector3, quality := "high") -> void:
 	var m := _lamp_mat(Color(1.0, 0.08, 0.04))
 	var mi := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radius = 0.35; sm.height = 0.7; mi.mesh = sm; mi.material_override = m
 	mi.position = at; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; parent.add_child(mi)
 	_reg(null, m, 0.0, 8.0, "aviation")
+	glow(parent, at, "aviation", quality, -1.0, Color(1.0, 0.1, 0.06), 2.2, 0.006)   # the aircraft light as the province's: a halo, seen from far
 
 ## A chain-link fence round `rect` (x, z), posts every 3 m, 2.4 m high, gaps in `gates` (centres on the edge, 6 m wide).
 ## `gy` gives the ground height at (x, z).

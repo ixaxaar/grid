@@ -5,6 +5,7 @@ shader_type spatial;
 render_mode blend_add, unshaded, depth_draw_never, cull_disabled, shadows_disabled, skip_vertex_transform;
 uniform int mode = 0;
 uniform float night = 0.0;
+uniform float lit = -1.0;   // >= 0: the light is set directly (Kit3D's lamp groups: night, blackout and a home's brightness in one number)
 uniform vec3 tint : source_color = vec3(1.0, 0.62, 0.28);
 uniform float gain = 1.6;
 uniform float size_k = 0.0042;
@@ -29,7 +30,7 @@ void vertex() {
 void fragment() {
 	float r = length(q);
 	float k = pow(clamp(1.0 - r, 0.0, 1.0), 2.0);
-	float nn = smoothstep(0.35, 0.9, night);
+	float nn = lit >= 0.0 ? lit : smoothstep(0.35, 0.9, night);
 	if (mode == 0) ALBEDO = tint * (k + 1.5 * pow(clamp(1.0 - r * 3.0, 0.0, 1.0), 2.0)) * gain * nn;
 	else ALBEDO = tint * k * 0.45 * nn * fade;
 }
