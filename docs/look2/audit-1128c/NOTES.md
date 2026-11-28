@@ -58,6 +58,12 @@ each licence page is checked before commit; every file goes into docs/ASSETS.md 
 6. NOTES current after each family; commit and push per family. Stop to ask only if a benchmark fails 7 after two rounds.
 
 ## Status (latest first)
+- 11-28 night (Ingrid, while the province helper works): Q01 fixed (Retry replays every logged setting; tests/
+  retry_truth.gd 99 checks, 36a24ba). Stall: the 470 ms frame was the music WAV encode on the main thread; moved to the
+  worker (098c34a); hitch log shows no frame over 100 ms after loading. Q05 not reproduced (engine 0.3 s for L28; window
+  runs fine). Q03 fixed (324ac10), Q04 fixed (3c539ae), C10 fixed (f3ad97f), C12 part (90a182d). Q07 is in shared core
+  (codex.gd:78), left for the core owner. Open for the families: C04, C08 (ch8), C09 (WO-14 label), C11 (Career), Q02
+  (plants), Q06 (WO-04 camera). Province benchmark (WO-16/17) in progress with a helper.
 - 11-28 late: ASSET PASS BENCHMARK WO-23 at 7 (art director, round 2, 8c412d7). Round 1 (10fee78) stayed 6: houses +1,
   decimated firs -1. Round 2: dark tree cores under the cards, every estate light on the estate supply (blackout glints
   were window pools dropped by Kit3D's weak material refs), tighter frame, Kenney people and car, lit hall windows.
