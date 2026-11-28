@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://utoyus4dp2y2"
-path.s3tc="res://.godot/imported/tree_broad_crown_albedo.jpg-64ccee288b2c67b2fe685b2ef167edeb.s3tc.ctex"
-path.etc2="res://.godot/imported/tree_broad_crown_albedo.jpg-64ccee288b2c67b2fe685b2ef167edeb.etc2.ctex"
+uid="uid://bxmfn3rqjuhvy"
+path.s3tc="res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://world3d/tex/tree_broad_crown_albedo.jpg"
-dest_files=["res://.godot/imported/tree_broad_crown_albedo.jpg-64ccee288b2c67b2fe685b2ef167edeb.s3tc.ctex", "res://.godot/imported/tree_broad_crown_albedo.jpg-64ccee288b2c67b2fe685b2ef167edeb.etc2.ctex"]
+source_file="res://world3d/tex/tree_birch_bark_albedo.jpg"
+dest_files=["res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.s3tc.ctex", "res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.etc2.ctex"]
 
 [params]
 

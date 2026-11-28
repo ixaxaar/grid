@@ -178,6 +178,21 @@ func floating(name: String, parts: Array) -> Array:
 		if not ok:
 			for cj in is_anchored.keys():
 				if _inside(c, fol, comps[cj]): ok = true; break
+		if not ok:   # a card sitting on a twig: a wood sample lies inside the card's box (the twig end passes through or behind it)
+			var clo := Vector3(INF, INF, INF); var chi := Vector3(-INF, -INF, -INF)
+			for i in ids: for v in fol[i]: clo = clo.min(v); chi = chi.max(v)
+			var pad := tol * 0.5
+			for gx in range(floori((clo.x - pad) / cell), floori((chi.x + pad) / cell) + 1):
+				for gy in range(floori((clo.y - pad) / cell), floori((chi.y + pad) / cell) + 1):
+					for gz in range(floori((clo.z - pad) / cell), floori((chi.z + pad) / cell) + 1):
+						var gk2 := Vector3i(gx, gy, gz)
+						if grid.has(gk2):
+							for q in grid[gk2]:
+								var qq: Vector3 = q
+								if qq.x >= clo.x - pad and qq.y >= clo.y - pad and qq.z >= clo.z - pad and qq.x <= chi.x + pad and qq.y <= chi.y + pad and qq.z <= chi.z + pad: ok = true; break
+						if ok: break
+					if ok: break
+				if ok: break
 		if not ok: bad += 1
 	if bad > 0: print("  %s: %d of %d foliage islands float (tolerance %.2f m)" % [name, bad, seen, tol])
 	return [bad, seen]
@@ -191,7 +206,7 @@ func _boxes_touch(fol: Array, a: Array, b: Array, tol: float) -> bool:
 func _initialize() -> void:
 	var checks := 0; var fails := 0; var islands := 0
 	var subjects: Array = []   # [name, parts]
-	for kind in ["fir_a", "fir_b", "broad"]:
+	for kind in Assets3D.KINDS:
 		for lod in 2:
 			var parts: Array = []
 			for e in Assets3D.meshes("trees/%s_lod%d" % [kind, lod]):

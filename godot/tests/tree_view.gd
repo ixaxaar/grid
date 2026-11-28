@@ -19,11 +19,11 @@ func _initialize() -> void:
 	root.add_child(sun)
 	var ground := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(120, 120); ground.mesh = pm
 	var gm := StandardMaterial3D.new(); gm.albedo_color = Color(0.22, 0.34, 0.14); ground.material_override = gm; root.add_child(ground)
-	var kinds := ["fir_a", "fir_b", "broad"]
-	for i in 3:
+	var kinds: Array = (OS.get_environment("CB_TREE_KINDS") if OS.get_environment("CB_TREE_KINDS") != "" else "fir_a,fir_b,broad,birch,shrub").split(",")
+	for i in kinds.size():
 		var mi := MeshInstance3D.new(); mi.mesh = Assets3D.tree_mesh(kinds[i], lod)
 		var s := 10.0 / Assets3D._trunk_h(kinds[i])
-		mi.transform = Transform3D(Basis().scaled(Vector3.ONE * s), Vector3((i - 1) * 9.0, 0, 0)); root.add_child(mi)
+		mi.transform = Transform3D(Basis().scaled(Vector3.ONE * s), Vector3((i - (kinds.size() - 1) * 0.5) * 8.5, 0, 0)); root.add_child(mi)
 	var cam := Camera3D.new(); cam.fov = 42.0; root.add_child(cam)
 	cam.look_at_from_position(Vector3(0, 4.5, dist), Vector3(0, 4.5, 0), Vector3.UP)
 	cam.current = true

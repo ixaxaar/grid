@@ -217,21 +217,26 @@ static var _tree_mats := {}
 static func _tree_mat(kind: String) -> Dictionary:
 	if _tree_mats.has(kind): return _tree_mats[kind]
 	var tw := StandardMaterial3D.new()
-	tw.albedo_texture = tex("tree_%s_albedo.png" % ("fir_twig" if kind.begins_with("fir") else "broad_leaf"))
+	tw.albedo_texture = tex({"fir_a": "tree_spray_fir.png", "fir_b": "tree_spray_fir.png", "birch": "tree_leaf_birch.png", "shrub": "tree_leaf_shrub.png"}.get(kind, "tree_leaf_oak.png") as String)
 	tw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; tw.alpha_scissor_threshold = 0.32
 	tw.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
-	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(1.7, 1.75, 1.5)   # the sprig texture is dark: lift it so a night wood reads green, not black
+	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(1.1, 1.12, 1.05)
 	tw.backlight_enabled = true; tw.backlight = Color(0.30, 0.34, 0.22)
 	tw.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	var tr := StandardMaterial3D.new()
-	tr.albedo_texture = tex("tree_%s_albedo.jpg" % ("fir_trunk_a" if kind == "fir_a" else ("fir_trunk_b" if kind == "fir_b" else "broad_trunk")))
+	var bark := {"fir_a": "tree_fir_trunk_a_albedo.jpg", "fir_b": "tree_fir_trunk_b_albedo.jpg", "birch": "tree_birch_bark_albedo.jpg"}.get(kind, "tree_broad_trunk_albedo.jpg") as String
+	tr.albedo_texture = tex(bark)
 	tr.vertex_color_use_as_albedo = true; tr.roughness = 0.9
 	tr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	var cr := StandardMaterial3D.new()   # the solid crown (1128c C17): a lathe of the species' foliage cloud, textured with its own needles or leaves
-	cr.albedo_texture = tex("tree_%s_crown_albedo.jpg" % ("fir" if kind.begins_with("fir") else "broad")); cr.vertex_color_use_as_albedo = true; cr.roughness = 0.9
-	cr.albedo_color = Color(1.5, 1.5, 1.4); cr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	var d := {"trunk": tr, "bark": tr, "twig": tw, "crown": cr}
+	var d := {"trunk": tr, "bark": tr, "twig": tw}
 	_tree_mats[kind] = d; return d
+
+## Which broadleaf model a place gets (by position, so neighbours differ): oak mostly, a birch now and then; gardens add shrubs.
+const KINDS := ["fir_a", "fir_b", "broad", "birch", "shrub"]
+static func broad_kind(o: Vector3, garden := false) -> String:
+	var h := fposmod(sin(o.x * 12.9898 + o.z * 78.233) * 43758.5453, 1.0)
+	if garden and h > 0.78: return "shrub"
+	return "birch" if h < 0.3 else "broad"
 
 static var _tree_meshes := {}
 static func tree_mesh(kind: String, lod: int) -> ArrayMesh:
@@ -250,7 +255,7 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 		var xf: Array = cx if pass_i == 0 else bx; var cols: Array = cc if pass_i == 0 else bc
 		for i in xf.size():
 			var t: Transform3D = xf[i]
-			var kind := "broad"
+			var kind := broad_kind(t.origin)
 			if pass_i == 0: kind = "fir_a" if (int(absf(t.origin.x * 7.3 + t.origin.z * 3.1)) % 3) == 0 else "fir_b"
 			var kt := [[t, cols[i]]]
 			if quality != "low" and gy.is_valid():   # a second tree beside it: the wood is massed, not a scatter
@@ -265,7 +270,7 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 				var g2: Dictionary = groups[key2]
 				(g2.xf as Array).append(tt); (g2.col as Array).append(kk[1]); g2.c += tt.origin
 	var heights := {}
-	for k in ["fir_a", "fir_b", "broad"]:
+	for k in KINDS:
 		heights[k] = _trunk_h(k)
 	for key in groups:
 		var g: Dictionary = groups[key]; var n: int = (g.xf as Array).size(); var c: Vector3 = g.c / float(n)

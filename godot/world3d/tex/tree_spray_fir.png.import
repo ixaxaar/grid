@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqvy3jo3wlehk"
-path.s3tc="res://.godot/imported/tree_fir_crown_albedo.jpg-87cb022116da6c807b3f1047d615f096.s3tc.ctex"
-path.etc2="res://.godot/imported/tree_fir_crown_albedo.jpg-87cb022116da6c807b3f1047d615f096.etc2.ctex"
+uid="uid://cnj6qphmt7f16"
+path.s3tc="res://.godot/imported/tree_spray_fir.png-67beebed673be14da4a6acd5930e7fbb.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_spray_fir.png-67beebed673be14da4a6acd5930e7fbb.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://world3d/tex/tree_fir_crown_albedo.jpg"
-dest_files=["res://.godot/imported/tree_fir_crown_albedo.jpg-87cb022116da6c807b3f1047d615f096.s3tc.ctex", "res://.godot/imported/tree_fir_crown_albedo.jpg-87cb022116da6c807b3f1047d615f096.etc2.ctex"]
+source_file="res://world3d/tex/tree_spray_fir.png"
+dest_files=["res://.godot/imported/tree_spray_fir.png-67beebed673be14da4a6acd5930e7fbb.s3tc.ctex", "res://.godot/imported/tree_spray_fir.png-67beebed673be14da4a6acd5930e7fbb.etc2.ctex"]
 
 [params]
 

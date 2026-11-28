@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://diuryfdfvm8l0"
-path.s3tc="res://.godot/imported/tree_fir_twig_albedo.png-3cef641a6ce254613ba009bb9bf14757.s3tc.ctex"
-path.etc2="res://.godot/imported/tree_fir_twig_albedo.png-3cef641a6ce254613ba009bb9bf14757.etc2.ctex"
+uid="uid://uak5v7ltjh6c"
+path.s3tc="res://.godot/imported/tree_leaf_shrub.png-1d13dbd39d15f56468453a1c1aa5d324.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_leaf_shrub.png-1d13dbd39d15f56468453a1c1aa5d324.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://world3d/tex/tree_fir_twig_albedo.png"
-dest_files=["res://.godot/imported/tree_fir_twig_albedo.png-3cef641a6ce254613ba009bb9bf14757.s3tc.ctex", "res://.godot/imported/tree_fir_twig_albedo.png-3cef641a6ce254613ba009bb9bf14757.etc2.ctex"]
+source_file="res://world3d/tex/tree_leaf_shrub.png"
+dest_files=["res://.godot/imported/tree_leaf_shrub.png-1d13dbd39d15f56468453a1c1aa5d324.s3tc.ctex", "res://.godot/imported/tree_leaf_shrub.png-1d13dbd39d15f56468453a1c1aa5d324.etc2.ctex"]
 
 [params]
 
