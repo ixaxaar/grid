@@ -57,6 +57,40 @@ each licence page is checked before commit; every file goes into docs/ASSETS.md 
    chapter (mouse on trays, levers, orbit/zoom); 1280x800, 1920x1080, 2560x1440, 4K, low tier.
 6. NOTES current after each family; commit and push per family. Stop to ask only if a benchmark fails 7 after two rounds.
 
+## HANDOVER 11-28 late night (Ingrid -> next lead). Manager decisions after the province gate
+1. Partial rollout APPROVED: the province street lamps (one per street piece, MultiMesh, lamp_glow halos and road pools),
+   plant aircraft lights and flood halos, and engine-driven windows (per-pane emissive, dark when the sector is unserved)
+   go to every town job. Also the CC0 asset set proven on WO-23 (Kenney houses with the lit/dark contract, Poly Haven
+   trees with dark cores in LOD cells, props, PBR ground, HDRI skies).
+2. WO-16 may OPEN its view at the evening-peak hour as presentation only (camera and time of day of the opening frame);
+   the simulated day and every engine number stay as they are.
+
+ROLLED OUT vs NOT
+- Roll out: lamps, halos, engine-driven windows, kit houses and blocks with far-LOD roof variety (four tints, see P01),
+  town cores of taller blocks, WO-23 trees, PBR ground, HDRI day/night skies, loaded lines thick and red when overloaded.
+- Do NOT roll out: the grey-roof shed cue (P01) as it stands.
+- Not built yet: WO-23 polish (people about 2x and visible in the blackout, headlight cones, hedges and gardens, faint
+  moon fill on dark houses, orange core in the smoke, the ghost-white covered car, grey bare trees at the left edge).
+
+P01 FIX IDEA (WO-17 report and any shed frame): mark dead sectors with something no healthy house can show: a cool
+shadow (darkened, blue-shifted light term) over the ground and roofs of the zero-energy sectors while the served half
+stays in warm sun, or draw the feeders live (glowing) and dead (dark). Remove grey from the healthy roof tints. Put the
+report camera on the lit/dead boundary with the city substation in frame. Also: frame WO-16's report on plant + red T7
++ B4; cap the core-tower bloom (P02); make line thickness by load visible below 100 % (P03).
+
+RUN ORDER FOR THE FAMILIES (commit, push and update NOTES after each)
+1. Province finish: P01 fix, WO-16 evening-peak opening, WO-17 noon focal point (city substation) and lower camera;
+   rescore WO-16/17 with the art director; then every province job (chapters 3, 5, 6, finale).
+2. Chapter 7 sites (WO-24..27) with the WO-23 polish list above.
+3. Chapter 4 and chapter 8 stages.
+4. Bench scenes (includes Q06, the WO-04 camera against the powerhouse wall).
+5. Bay and island (includes Q02 black plant meshes at night where the plants appear).
+6. Career district, then the title.
+7. Sweep 6, one per-job art round, a regression playtest with real hand input on at least one job per chapter (mouse on
+   trays, levers, orbit and zoom); 1280x800, 1920x1080, 2560x1440, 4K and the low tier (L16 low was 45-53 fps).
+Rules unchanged: CC0 only with docs/ASSETS.md; tests and flows local only (no GitHub workflows); no tag or release;
+one helper at a time; look6 only.
+
 ## Status (latest first)
 - 11-28 late night: STOPPED AT THE GATE (manager rule: a benchmark under 7 after two rounds). Province round 2
   (ffc06a5, b2e55b9): WO-17 job 6 (noon 5, night 7, report 5); WO-16 job 5 (day 4, night 6, report 6). Owner on look6:
