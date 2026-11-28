@@ -44,6 +44,19 @@ each licence page is checked before commit; every file goes into docs/ASSETS.md 
   repo growth under about 80 MB.
 - Before the pass: playtest regression sweep (one helper) closed and committed.
 
+## Manager decisions 11-28 late (after WO-23 reached 7) — the run order to the finish
+1. Fix the L23 low-tier stall (~470 ms frame) in this pass: warm up asset materials, shader variants and textures
+   behind the loading card; frame-time log before/after. If not that, one short systems-engineer look.
+2. Province benchmark now: WO-17 (town, day and night) and WO-16 (wide map), to 7 before the province rolls out.
+   Real houses with LOD/MultiMesh, tree models, PBR splat, HDRI sky; lit towns must read from the map camera at night.
+3. Roll out by family: other ch7 sites (with the WO-23 polish: people 2x, headlights, hedges, moon fill on dark
+   houses, smoke glow, ghost car), ch4/ch8 stages, bench, bay/island, province, Career district, title.
+4. Q01: Retry must replay every job's settings (test first). Close Q02-Q07, C04, C08-C13 that rollout does not;
+   Q05 (L28 freeze) needs a cause.
+5. After rollout: sweep 6, one per-job art round, regression playtest with real hand input on at least one job per
+   chapter (mouse on trays, levers, orbit/zoom); 1280x800, 1920x1080, 2560x1440, 4K, low tier.
+6. NOTES current after each family; commit and push per family. Stop to ask only if a benchmark fails 7 after two rounds.
+
 ## Status (latest first)
 - 11-28 late: ASSET PASS BENCHMARK WO-23 at 7 (art director, round 2, 8c412d7). Round 1 (10fee78) stayed 6: houses +1,
   decimated firs -1. Round 2: dark tree cores under the cards, every estate light on the estate supply (blackout glints
