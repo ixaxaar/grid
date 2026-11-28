@@ -42,9 +42,12 @@ func _look3() -> bool:
 func _has_point(p: Vector2) -> bool:
 	if not _look3(): return Rect2(Vector2.ZERO, size).has_point(p)
 	if panel.grow(4.0).has_point(p) or _tag_rect().has_point(p) or _fold_rect().has_point(p): return true
-	if GridTheme.charts_folded: return false
+	if GridTheme.charts_folded and not _exam_sheet(): return false
 	for r in _stage_rects(): if (r as Rect2).has_point(p): return true
 	return false
+
+## An exam job (L27, L36) keeps its exam sheet when the charts fold: the sheet is the job (1128c, like WO-18's).
+func _exam_sheet() -> bool: return false
 
 ## The rects of the stage that take the mouse in 3D (charts that are controls: none today; L10's houses).
 func _stage_rects() -> Array: return []
@@ -346,7 +349,7 @@ func _draw() -> void:
 	if panel.size.x < 1.0: layout()   # the first layout came before the chrome was built
 	if _look3():   # the 3D place is the stage: charts and the panel stay, in glass
 		_pins.clear(); _top_y = TOP
-		if not GridTheme.charts_folded: _draw_stage()   # 11-28b: V folds the charts away
+		if not GridTheme.charts_folded or _exam_sheet(): _draw_stage()   # 11-28b: V folds the charts away
 		_draw_panel()
 		return
 	draw_rect(Rect2(Vector2.ZERO, size), GridTheme.NIGHT, true)   # an opaque stage: the world underneath is not this level's place

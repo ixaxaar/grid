@@ -64,7 +64,7 @@ const S := {
 	"C8_G_FAULTS": "Faults: %s per km per year, anywhere on the line. A fault takes %s h to repair; a manual switch takes %s h to operate.", "C8_G_LOAD": "%s kW + %s kvar",
 	"C8_G_TASK": "Predict the far-end voltage drop in percent (the textbook sum of (R P + X Q) / V^2 over the sections), SAIFI in interruptions per customer per year and SAIDI in minutes per customer per year (IEEE 1366). Then name the equation behind the drop.",
 	"C8_G_THINK": "Work it by hand: each section carries the load of everything beyond it. Faults on a section interrupt everything behind the nearest device ahead of it until it is repaired or switched round.",
-	"C8_YOURS": "your guess: %s", "C8_NO_GUESS": "no guess yet", "C8_ANSWER": "answer %s", "C8_OFF_BY": "off by %s %%", "C8_MADE": "predictions made: %d of 3",
+	"C8_SHEET_Q": "Your predictions", "C8_YOURS": "your guess: %s", "C8_NO_GUESS": "no guess yet", "C8_ANSWER": "answer %s", "C8_OFF_BY": "off by %s %%", "C8_MADE": "predictions made: %d of 3",
 	# lamp conditions (work_order.lamp_texts reads TH_<threshold>): the star conditions of L31-L36, named so the lamps say what they ask
 	"TH_lossMax": "Line losses \u2264\u00a0%s\u00a0%%", "TH_ensStar": "Energy not supplied \u2264\u00a0%s MWh a year", "TH_marginStar": "Every fuse saved with \u2265\u00a0%s s to spare",
 	"TH_lolMid": "Transformer life lost \u2264\u00a0%s days", "TH_lolMax": "Transformer life lost \u2264\u00a0%s days", "TH_pvStar": "Host \u2265\u00a0%s kW of rooftop solar",

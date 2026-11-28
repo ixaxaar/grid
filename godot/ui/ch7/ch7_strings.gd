@@ -48,6 +48,6 @@ const S := {
 	"C7_LEG_STACK": "generation", "C7_PLANT_coalsub": "sub coal", "C7_PLANT_coalsc": "super coal", "C7_PLANT_ccgt": "CCGT", "C7_PLANT_ocgt": "OCGT",
 	"C7_MODE_merit": "cheapest first", "C7_MODE_lambda": "equal lambda", "C7_MODE_corridor": "lambda + corridor",
 	# L27
-	"C7_EXAM": "Exam questions", "C7_Q_ps17": "3-phase fault, kA", "C7_Q_ps18": "SLG fault, kA", "C7_Q_ps20": "lambda, no limits, $/MWh", "C7_Q_ps21": "lambda, limits binding, $/MWh", "C7_Q_ps22": "lambda with losses, $/MWh", "C7_Q_ps24": "critical clearing time at 60 Hz, s",
+	"C7_EXAM": "Exam questions", "C7_SHEET": "Exam sheet", "C7_SHEET_MORE": "scroll for more", "C7_SHEET_TOP": "scroll up for more", "C7_Q_ps17": "3-phase fault, kA", "C7_Q_ps18": "SLG fault, kA", "C7_Q_ps20": "lambda, no limits, $/MWh", "C7_Q_ps21": "lambda, limits binding, $/MWh", "C7_Q_ps22": "lambda with losses, $/MWh", "C7_Q_ps24": "critical clearing time at 60 Hz, s",
 	"C7_ANSWER": "answer %s", "C7_DISPATCH_CAP": "TONIGHT'S DISPATCH, MW (unit 1, 2, 3)", "C7_BOARD_KA": "grown board: 3-phase %s kA, SLG %s kA", "C7_DISPATCH_SUM": "sum %s of %d MW", "C7_UNIT": "unit %d  (%d to %d)",
 }

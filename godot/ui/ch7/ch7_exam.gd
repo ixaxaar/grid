@@ -36,10 +36,21 @@ func _layout_panel() -> void:
 	var inner := Rect2(panel.position + Vector2(12.0, 8.0), panel.size - Vector2(24.0, 16.0)); var rs := []; var ra := []
 	for r in kit.get("ratings", []): rs.append(WorkOrder.num(float(r.kA))); ra.append(float(r.kA))
 	_chip_row(inner.position.x, inner.position.y + 20.0, 56.0, 40.0, 5.0, rs, "rating", ra, q.design.rating)
-	if not _phone(): _add_chip(Rect2(Vector2(32.0, 420.0), Vector2(150, 30)), "card", "")
-	if not _phone(): rows.append({"r": Rect2(Vector2(32.0, 420.0), Vector2(150, 30)), "label": T("C7_HIDE") if show_card else T("C7_SHOW"), "on": show_card, "id": "card", "arg": ""})
+	var cr := _card_chip()
+	if not _phone(): _add_chip(cr, "card", "")
+	if not _phone(): rows.append({"r": cr, "label": T("C7_HIDE") if show_card else T("C7_SHOW"), "on": show_card, "id": "card", "arg": ""})
 	for k in 3:
 		var e: LineEdit = edits["disp%d" % k]; e.position = Vector2(inner.position.x + 340.0 + 90.0 * k, inner.position.y + 26.0); e.size = Vector2(80, 30)
+
+## "show formulas": at the foot of the exam sheet in 3D, under the questions card on the classic stage.
+func _card_chip() -> Rect2:
+	if _look3() and not _phone():
+		var r := _sheet_rect()
+		return Rect2(Vector2(r.position.x + 12.0, r.end.y - 40.0), Vector2(170, 30))
+	return Rect2(Vector2(32.0, 420.0), Vector2(150, 30))
+
+func _exam_sheet() -> bool: return true
+func _stage_rects() -> Array: return [_sheet_rect()] if _look3() and not _phone() else []
 
 func _press(h: Dictionary, _p: Vector2) -> void:
 	if str(h.id) == "fold": folded = not folded; layout(); queue_redraw(); return
@@ -61,6 +72,7 @@ func _draw_panel_body() -> void:
 
 func _draw_stage() -> void:
 	var l3 := _look3()
+	if l3 and not _phone(): _draw_sheet3(); return
 	var w := _right() if l3 else size.x; var top := _stage_top(); var bh := _stage_h(240.0)
 	var r := Rect2(Vector2(30.0, top), Vector2((minf(w - 60.0, 800.0) if not l3 else minf(w - 60.0, 740.0)) if not _phone() else minf(w * 0.52, 620.0), 250.0 if not _phone() else 5.0 * _row() + 44.0)); draw_style_box(_box_sb(0.82), r)
 	_text(_semi(), 12, r.position + Vector2(14, 22), T("C7_EXAM"), Color(GridTheme.TEXT, 0.75))
@@ -97,6 +109,40 @@ func _draw_stage() -> void:
 		var fy := cr.position.y + 58.0
 		for f in ["C7_F1", "C7_F2", "C7_F3", "C7_F5"]:
 			_text(_mono(), 11, Vector2(cr.position.x + 14.0, fy), T(f), Color(GridTheme.TEXT, 0.85)); fy += 18.0
+
+func _givens_lines() -> Array:
+	var g: Dictionary = q.givens; var u: Array = g.units; var a: Dictionary = g.ps17; var b: Dictionary = g.ps18; var c: Dictionary = g.ps24
+	var lines := [T("C7_G27_A") % [WorkOrder.num(a.genX), WorkOrder.num(b.genX2), WorkOrder.num(b.genX0), WorkOrder.num(a.xfmrX), WorkOrder.num(a.lineXOhm), WorkOrder.num(b.lineX0Ohm), int(a.kv)]]
+	for k in 3: lines.append(T("C7_G27_B") % [k + 1, WorkOrder.num(u[k].a), WorkOrder.num(u[k].b), WorkOrder.num(u[k].c), int(u[k].pMin), int(u[k].pMax)])
+	lines.append(T("C7_G27_B2") % [int(g.demandNoLimitsMW), int(g.demandMW)]); lines.append(T("C7_G27_C") % [int(c.f0), WorkOrder.num(c.H), WorkOrder.num(c.Pm), WorkOrder.num(c.Pmax)]); var bd: Dictionary = q.get("board", {}); lines.append(T("C7_G27_D") % [WorkOrder.num(float(bd.get("z1", 0))), WorkOrder.num(float(bd.get("z2", 0))), WorkOrder.num(float(bd.get("z0", 0))), WorkOrder.num(float(bd.get("ibKA", 0)))])
+	return lines
+
+## The 3D exam sheet (1128c, like WO-18's): docked at the right edge and kept when the charts fold. Givens on top (the formulas below them when shown; the
+## wheel scrolls), the five questions with their boxes at the foot, the engine's answer under each after the run.
+func _draw_sheet3() -> void:
+	var r := _sheet_rect(); _sheet_frame(r, T("C7_SHEET")); var rv := _revealed()
+	var qs := []
+	for qq in q.questions: if edits.has(str(qq.id)): qs.append(qq)
+	var rh := 36.0 + (18.0 if rv else 0.0)
+	var qy := r.end.y - 48.0 - 30.0 - rh * qs.size()
+	var cl := []
+	for ln in _givens_lines(): cl.append([ln, Color(GridTheme.TEXT, 0.85)])
+	if show_card:
+		cl.append([T("C7_FORMULA_CAP"), GridTheme.SODIUM])
+		for f in ["C7_F1", "C7_F2", "C7_F3", "C7_F5"]: cl.append([T(f), Color(GridTheme.TEXT, 0.85)])
+	_text(_semi(), 11, r.position + Vector2(12.0, 54.0), T("C7_GIV_CAP"), GridTheme.SODIUM)
+	_sheet_lines(r, r.position.y + 64.0, qy - 8.0, cl)
+	draw_line(Vector2(r.position.x + 12.0, qy), Vector2(r.end.x - 12.0, qy), Color(GridTheme.TEXT, 0.18), 1.0)
+	_text(_semi(), 11, Vector2(r.position.x + 12.0, qy + 22.0), T("C7_EXAM"), GridTheme.SODIUM)
+	var y := qy + 30.0
+	for qq in qs:
+		var id := str(qq.id)
+		_text(_semi(), 12, Vector2(r.position.x + 12.0, y + 21.0), T("C7_Q_" + id), GridTheme.TEXT)
+		var e: LineEdit = edits[id]; e.position = Vector2(r.end.x - 12.0 - 84.0, y + 2.0); e.size = Vector2(84, 30); e.visible = true
+		if rv and qq.get("actual") != null:
+			var ok := bool(qq.get("within", false)); _text(_mono(), 12, Vector2(r.position.x + 24.0, y + 42.0), (T("C7_ANSWER") % WorkOrder.num(float(qq.actual))) + ("  ✓" if ok else "  ✗"), _good(ok))
+		y += rh
+	if not GridTheme.charts_folded: _pins3()
 
 ## The 3D exam: the grown board's rating once run, and tonight's three units against the demand.
 func _pins3() -> void:

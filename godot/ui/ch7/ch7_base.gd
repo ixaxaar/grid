@@ -125,7 +125,30 @@ func _card_text(r: Rect2, lines: Array, fsz: int, gap: float, top_pad: float) ->
 	scroll_max = maxf(0.0, total - (r.size.y - top_pad - 8.0))
 	if _phone() and scroll_max > 0.0: _text(_mono(), 9, Vector2(r.end.x - 90.0, r.end.y - 8.0), "drag to scroll", Color(GridTheme.TEXT, 0.4))
 
+## The exam sheet (L27, L36 in 3D; 1128c, like WO-18's): one glass sheet docked at the right edge, givens on top (the wheel scrolls them), the questions and their boxes below.
+var _gs := 0.0       ## the givens' wheel scroll
+var _gs_max := 0.0
+func _sheet_rect() -> Rect2:
+	var sw := 440.0 if size.x >= 1500.0 else 380.0; var top := TOP - 18.0
+	return Rect2(Vector2(_right() - sw - M, top), Vector2(sw, maxf(panel.position.y - top - 12.0, 260.0)))
+func _sheet_frame(r: Rect2, title: String) -> void:
+	draw_style_box(_box_sb(0.86), r)
+	_text(_semi(), 13, r.position + Vector2(12.0, 26.0), title, GridTheme.TEXT)
+## [text, colour] lines wrapped between y0 and y1 of the sheet, shifted by the wheel scroll; a line that would cross either edge is left out.
+func _sheet_lines(r: Rect2, y0: float, y1: float, lines: Array) -> void:
+	var f := _semi(); var fz := GridText.floor_size(self, GridTheme.fs(11)); var wd := r.size.x - 24.0
+	var y := y0 - _gs; var total := 0.0
+	for ln in lines:
+		var h: float = f.get_multiline_string_size(str(ln[0]), HORIZONTAL_ALIGNMENT_LEFT, wd, fz).y
+		if y >= y0 - 1.0 and y + h <= y1 + 1.0: GridText.dm(self, f, Vector2(r.position.x + 12.0, y + fz), str(ln[0]), HORIZONTAL_ALIGNMENT_LEFT, wd, fz, -1, ln[1])
+		y += h + 6.0; total += h + 6.0
+	_gs_max = maxf(0.0, total - 6.0 - (y1 - y0)); _gs = clampf(_gs, 0.0, _gs_max)
+	if _gs_max > 0.0: _text(_mono(), 9, Vector2(r.end.x - 150.0, r.position.y + 26.0), T("C7_SHEET_MORE") if _gs < _gs_max - 1.0 else T("C7_SHEET_TOP"), Color(GridTheme.TEXT, 0.5), 138.0, 2)
+
 func _gui_input(e: InputEvent) -> void:
+	if visible and not _phone() and _exam_sheet() and _look3() and e is InputEventMouseButton and (e.button_index == MOUSE_BUTTON_WHEEL_DOWN or e.button_index == MOUSE_BUTTON_WHEEL_UP) and _sheet_rect().has_point(e.position):
+		if e.pressed: _gs = clampf(_gs + (30.0 if e.button_index == MOUSE_BUTTON_WHEEL_DOWN else -30.0), 0.0, _gs_max); queue_redraw()
+		accept_event(); return   # the wheel over the sheet never zooms the world
 	if visible and _phone():
 		if e is InputEventMouseMotion and (e.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 and drag_id == "" and hit_at(e.position).is_empty() and scroll_max > 0.0:
 			scroll = clampf(scroll - e.relative.y, 0.0, scroll_max); queue_redraw(); accept_event(); return
@@ -151,7 +174,7 @@ func _draw() -> void:
 func layout() -> void:
 	rows.clear()
 	super.layout()
-	if GridTheme.charts_folded and _look3():   # 11-28b: the stage's answer boxes fold with the charts; the panel's stay
+	if GridTheme.charts_folded and _look3() and not _exam_sheet():   # 11-28b: the stage's answer boxes fold with the charts; the panel's stay
 		for e in edits.values(): if not panel.grow(4.0).has_point((e as LineEdit).position): (e as LineEdit).visible = false
 	if _phone() and visible and not _collapsed:   # the levels place their answer boxes in panel coordinates: map them into the scaled slot
 		for e in edits.values():

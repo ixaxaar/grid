@@ -17,26 +17,34 @@ func _after_refresh() -> void:
 ## 1.9: the "why" rows are one line each and as wide as the panel allows (450 px with two wrapped lines ran out of their boxes at the 16 px floor)
 func _why_w(ip: Rect2) -> float: return clampf(ip.size.x - 260.0, 450.0, 820.0)
 
+## In 3D the three boxes sit on the exam sheet (1128c, like WO-18's) and the panel keeps only the "why" card, one row higher.
+func _sheet3() -> bool: return _look3() and not _phone()
+func _wy() -> float: return -54.0 if _sheet3() else 0.0
+func _exam_sheet() -> bool: return true
+func _stage_rects() -> Array: return [_sheet_rect()] if _sheet3() else []
+
 func _build_panel(ip: Rect2) -> void:
-	for k in IDS.size():
-		var e: LineEdit = edits[IDS[k]]; e.position = ip.position + Vector2(214.0 * k, 20.0); e.size = Vector2(92, 30)
-		_cap(ip, 214.0 * k, 12, T("C8_QS_" + IDS[k]))
-	_cap(ip, 0, 66, T("C8_WHY_CAP"))
+	if not _sheet3():
+		for k in IDS.size():
+			var e: LineEdit = edits[IDS[k]]; e.position = ip.position + Vector2(214.0 * k, 20.0); e.size = Vector2(92, 30)
+			_cap(ip, 214.0 * k, 12, T("C8_QS_" + IDS[k]))
+	_cap(ip, 0, 66 + _wy(), T("C8_WHY_CAP"))
 	var ch: Array = q.why.choices
-	for k in ch.size(): _c(ip, 0, 72.0 + 36.0 * k, _why_w(ip), 32, "", "why", str(ch[k].id), str(q.why.chosen) == str(ch[k].id))
+	for k in ch.size(): _c(ip, 0, 72.0 + _wy() + 36.0 * k, _why_w(ip), 32, "", "why", str(ch[k].id), str(q.why.chosen) == str(ch[k].id))
 
 func _pressed(h: Dictionary, _p: Vector2) -> void:
 	if str(h.id) == "why": _act("answerWhy", [str(h.arg)])
 
 func _body(ip: Rect2) -> void:
-	for k in IDS.size():
-		var e: LineEdit = edits[IDS[k]]; _text(_mono(), 11, e.position + Vector2(98.0, 20.0), T("C8_U_" + IDS[k]), Color(GridTheme.TEXT, 0.7))
-	if _revealed(): _text(_semi(), 11, ip.position + Vector2(_why_w(ip) + 20.0, 92.0), T("C8_WHY_RIGHT") if bool(q.get("whyOk", false)) else T("C8_WHY_WRONG"), _good(bool(q.get("whyOk", false))))
+	if not _sheet3():
+		for k in IDS.size():
+			var e: LineEdit = edits[IDS[k]]; _text(_mono(), 11, e.position + Vector2(98.0, 20.0), T("C8_U_" + IDS[k]), Color(GridTheme.TEXT, 0.7))
+	if _revealed(): _text(_semi(), 11, ip.position + Vector2(_why_w(ip) + 20.0, 92.0 + _wy()), T("C8_WHY_RIGHT") if bool(q.get("whyOk", false)) else T("C8_WHY_WRONG"), _good(bool(q.get("whyOk", false))))
 
 func _over(ip: Rect2) -> void:
 	var ch: Array = q.why.choices
 	for k in ch.size():
-		var r := Rect2(ip.position + Vector2(0, 72.0 + 36.0 * k), Vector2(_why_w(ip), 32)); var on := str(q.why.chosen) == str(ch[k].id)
+		var r := Rect2(ip.position + Vector2(0, 72.0 + _wy() + 36.0 * k), Vector2(_why_w(ip), 32)); var on := str(q.why.chosen) == str(ch[k].id)
 		var fz := GridText.floor_size(self, GridTheme.fs(10))
 		var txt := str(ch[k].text); var f := _semi()
 		while txt.length() > 4 and f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x > r.size.x - 20.0: txt = txt.left(txt.length() - 2).strip_edges() + "…"
@@ -94,21 +102,42 @@ func _answers(rr: Rect2, y0: float) -> void:
 
 ## The 3D feeder: the givens and the answers stay as glass cards over the sky (the prediction boxes and the why card are in the panel); each section's village says its load and device.
 func _draw_stage3() -> void:
-	var w := _right(); var bh := _cards3_h(460.0)
+	_draw_sheet3()
+	if GridTheme.charts_folded: return
+	var secs3: Array = q.givens.sections
+	_pin("sub", [T("C8_SUB_PIN")], [GridTheme.G_TEXT], 22.0)
+	for s in secs3:
+		var ln := ["%s  %s" % [str(s.id), T("C8_KM") % WorkOrder.num(float(s.km))], T("C8_HOMES_PIN") % int(s.customers), T("C8_G_LOAD") % [WorkOrder.num(float(s.kw)), WorkOrder.num(float(s.kvar))]]; var cl := [GridTheme.G_TEXT, GridTheme.G_DIM, GridTheme.G_DIM]
+		if str(s.device) != "none": ln.append(T("C8_DEV_SHORT_" + str(s.device))); cl.append(GridTheme.COPPER if str(s.device) == "manual" else GridTheme.GOOD)
+		_pin(str(s.id), ln, cl, 20.0)
+
+## The exam sheet (1128c, like WO-18's): docked at the right edge and kept when the charts fold. Givens on top (the wheel scrolls them), the three
+## predictions with their boxes at the foot, the engine's answer under each after the run.
+func _draw_sheet3() -> void:
+	var r := _sheet_rect(); _sheet_frame(r, T("C7_SHEET")); var rv := _revealed()
+	_pins.append(r)
 	var g: Dictionary = q.givens; var secs: Array = g.sections
-	var gr := Rect2(Vector2(M, TOP), Vector2(minf(w * 0.4, 640.0), bh))
 	var lines := [[T("C8_G_LINE") % [int(g.kV), str(g.conductor), WorkOrder.num(float(g.rOhmKm)), WorkOrder.num(float(g.xOhmKm))], Color(GridTheme.TEXT, 0.9)]]
 	for s in secs:
 		lines.append([T("C8_G_SEC") % [str(s.id), WorkOrder.num(float(s.km)), int(s.customers), WorkOrder.num(float(s.kw)), WorkOrder.num(float(s.kvar)), T("C8_DEV_" + str(s.device))], Color(GridTheme.TEXT, 0.85)])
 	lines.append([T("C8_G_FAULTS") % [WorkOrder.num(float(g.lambdaPerKm)), WorkOrder.num(float(g.repairH)), WorkOrder.num(float(g.manualH))], Color(GridTheme.TEXT, 0.85)])
 	lines.append([T("C8_G_TASK"), GridTheme.SODIUM]); lines.append([T("C8_G_THINK"), Color(GridTheme.TEXT, 0.6)])
-	_lines(gr, T("C8_GIV_CAP"), lines, 12, 8.0)
-	var rw := minf(w * 0.3, 440.0)
-	var rr := Rect2(Vector2(w - M - rw, TOP), Vector2(rw, minf(bh, 330.0))); _card(rr)
-	_answers(rr, rr.position.y + 22.0)
-	_pins.append(gr); _pins.append(rr)
-	_pin("sub", [T("C8_SUB_PIN")], [GridTheme.G_TEXT], 22.0)
-	for s in secs:
-		var ln := ["%s  %s" % [str(s.id), T("C8_KM") % WorkOrder.num(float(s.km))], T("C8_HOMES_PIN") % int(s.customers), T("C8_G_LOAD") % [WorkOrder.num(float(s.kw)), WorkOrder.num(float(s.kvar))]]; var cl := [GridTheme.G_TEXT, GridTheme.G_DIM, GridTheme.G_DIM]
-		if str(s.device) != "none": ln.append(T("C8_DEV_SHORT_" + str(s.device))); cl.append(GridTheme.COPPER if str(s.device) == "manual" else GridTheme.GOOD)
-		_pin(str(s.id), ln, cl, 20.0)
+	var rh := 40.0 + (18.0 if rv else 0.0)
+	var qy := r.end.y - 34.0 - 30.0 - rh * IDS.size()
+	_text(_semi(), 11, r.position + Vector2(12.0, 54.0), T("C8_GIV_CAP"), GridTheme.SODIUM)
+	_sheet_lines(r, r.position.y + 64.0, qy - 8.0, lines)
+	draw_line(Vector2(r.position.x + 12.0, qy), Vector2(r.end.x - 12.0, qy), Color(GridTheme.TEXT, 0.18), 1.0)
+	_text(_semi(), 11, Vector2(r.position.x + 12.0, qy + 22.0), T("C8_SHEET_Q"), GridTheme.SODIUM)
+	var y := qy + 30.0; var made := 0
+	for qq in q.questions:
+		var id := str(qq.id)
+		if not edits.has(id): continue
+		if qq.get("predicted") != null: made += 1
+		_text(_mono(), 12, Vector2(r.position.x + 12.0, y + 23.0), T("C8_QS_" + id), GridTheme.TEXT)
+		var e: LineEdit = edits[id]; e.position = Vector2(r.end.x - 12.0 - 92.0 - 70.0, y + 4.0); e.size = Vector2(92, 30); e.visible = true
+		_text(_mono(), 11, Vector2(r.end.x - 12.0 - 64.0, y + 23.0), T("C8_U_" + id), Color(GridTheme.TEXT, 0.7))
+		if rv and qq.get("actual") != null:
+			var ok := bool(qq.get("within5", false)); var err = qq.get("errPct")
+			_text(_mono(), 12, Vector2(r.position.x + 24.0, y + 46.0), (T("C8_ANSWER") % WorkOrder.num(float(qq.actual))) + ("  ✓" if ok else "  ✗") + ((("  " + T("C8_OFF_BY") % WorkOrder.num(float(err)))) if err != null else ""), _good(ok))
+		y += rh
+	_text(_mono(), 11, Vector2(r.position.x + 12.0, r.end.y - 14.0), T("C8_MADE") % made, _good(made == 3))
