@@ -115,6 +115,9 @@ func _make_env() -> void:
 	var nt := NoiseTexture2D.new(); nt.seamless = true; nt.width = 512; nt.height = 512
 	var fn := FastNoiseLite.new(); fn.frequency = 0.012; fn.fractal_octaves = 5; nt.noise = fn
 	sky_mat.set_shader_parameter("noise", nt)
+	if ResourceLoader.exists("res://world3d/tex/sky_day_pano.hdr"):   # CC0 HDRIs (docs/ASSETS.md): a midday sky for the day, the night sky with its moon; the shader turns each to the scene's sun and moon
+		sky_mat.set_shader_parameter("pano_day", load("res://world3d/tex/sky_day_pano.hdr")); sky_mat.set_shader_parameter("pano_day_k", 1.0)
+		sky_mat.set_shader_parameter("pano", load("res://world3d/tex/sky_night_pano.hdr")); sky_mat.set_shader_parameter("pano_k", 1.0)
 	sky.sky_material = sky_mat; sky.radiance_size = Sky.RADIANCE_SIZE_256
 	sky.process_mode = Sky.PROCESS_MODE_REALTIME if quality == "high" else Sky.PROCESS_MODE_INCREMENTAL
 	env.sky = sky
@@ -438,7 +441,7 @@ func _build_water() -> void:
 		rv.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_root_static.add_child(rv)
 
-func _mm_chunked(mesh: Mesh, xforms: Array, cols: Array, mat: Material, chunk_m: float, vis_end: float, name: String, shadows := true) -> void:
+func _mm_chunked(mesh: Mesh, xforms: Array, cols: Array, mat: Material, chunk_m: float, vis_end: float, name: String, shadows := true, vis_begin := 0.0) -> void:
 	var buckets := {}
 	for k in xforms.size():
 		var o: Vector3 = (xforms[k] as Transform3D).origin
@@ -453,6 +456,7 @@ func _mm_chunked(mesh: Mesh, xforms: Array, cols: Array, mat: Material, chunk_m:
 			mm.set_instance_transform(q, xforms[ids[q]]); mm.set_instance_color(q, cols[ids[q]])
 		var mi := MultiMeshInstance3D.new(); mi.name = "%s_%d_%d" % [name, key.x, key.y]; mi.multimesh = mm; mi.material_override = mat
 		mi.visibility_range_end = vis_end; mi.visibility_range_end_margin = vis_end * 0.1
+		if vis_begin > 0.0: mi.visibility_range_begin = vis_begin; mi.visibility_range_begin_margin = vis_begin * 0.1
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_root_static.add_child(mi)
@@ -522,8 +526,25 @@ func _forest_poll() -> void:
 
 func _place_forests(xc: Array, cc: Array, xb: Array, cb: Array, tmat: Material, con: Mesh, brd: Mesh) -> void:
 	var ve := (7000.0 if quality == "high" else 4500.0) * (1.6 if field is GenField else 1.0)
-	_mm_chunked(con, xc, cc, tmat, 600.0, ve, "Conifers", quality != "low")
-	_mm_chunked(brd, xb, cb, tmat, 600.0, ve, "Broadleaf", quality != "low")
+	var kit := ResourceLoader.exists(Assets3D.DIR + "trees/broad_lod1.glb")
+	# three LODs: the CC0 photogrammetry trees cut in Blender (LOD0 about 4-8 k triangles near the camera, LOD1 800 beyond it), then the generated
+	# trees from 1.4 km out, where one is a few pixels; the lists are split by kind first (two firs, one broadleaf)
+	var far_from := 1400.0 if kit else 0.0
+	if kit:
+		var kinds := {"fir_a": [[], []], "fir_b": [[], []], "broad": [[], []]}
+		for pass_i in 2:
+			var xs: Array = xc if pass_i == 0 else xb; var cs: Array = cc if pass_i == 0 else cb
+			for i in xs.size():
+				var o: Vector3 = (xs[i] as Transform3D).origin
+				var k := "broad"
+				if pass_i == 0: k = "fir_a" if (int(absf(o.x * 7.3 + o.z * 3.1)) % 3) == 0 else "fir_b"
+				(kinds[k][0] as Array).append(xs[i]); (kinds[k][1] as Array).append(cs[i])
+		for k in kinds:
+			var l: Array = kinds[k]
+			if quality != "low": Assets3D.forest_lod(_root_static, k, l[0], l[1], 0, 160.0, 0.0, 190.0, quality == "high")
+			Assets3D.forest_lod(_root_static, k, l[0], l[1], 1, 320.0, 150.0 if quality != "low" else 0.0, far_from + 120.0, false)
+	_mm_chunked(con, xc, cc, tmat, 600.0, ve, "Conifers", quality != "low", far_from)
+	_mm_chunked(brd, xb, cb, tmat, 600.0, ve, "Broadleaf", quality != "low", far_from)
 	print("LOOK2 trees: %d conifers, %d broadleaf" % [xc.size(), xb.size()])
 
 func _forest_row(j: int, near: Rect2, cell: float, nx: int) -> Array:
@@ -631,7 +652,7 @@ func _build_layout() -> void:
 				if ok: keep.append(pl)
 			places = keep
 		var sm := MeshInstance3D.new(); sm.name = "Streets"; sm.mesh = TownGen.street_mesh(tg.streets, ground)
-		_street_mat = ShaderMaterial.new(); _street_mat.shader = load("res://world3d/shaders/street.gdshader"); sm.material_override = _street_mat
+		_street_mat = _new_street_mat(); sm.material_override = _street_mat
 		sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_infra.add_child(sm)
 		var radii: Array = []
 		for ti in tg.centres.size(): radii.append(float((field as GenField).towns[ti].r))
@@ -657,7 +678,7 @@ func _build_layout() -> void:
 		area_tg = TownGen.build(AreaTowns.new(field, model, big_areas), model, quality, ground)
 		places = area_tg.places
 		var sm2 := MeshInstance3D.new(); sm2.name = "Streets"; sm2.mesh = TownGen.street_mesh(area_tg.streets, ground)
-		_street_mat = ShaderMaterial.new(); _street_mat.shader = load("res://world3d/shaders/street.gdshader"); sm2.material_override = _street_mat
+		_street_mat = _new_street_mat(); sm2.material_override = _street_mat
 		sm2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_infra.add_child(sm2)
 		_core_mat = ShaderMaterial.new(); _core_mat.shader = load("res://world3d/shaders/town_core.gdshader")
 		_town_lit = PackedFloat32Array(); _town_lit.resize(64)
@@ -704,9 +725,15 @@ func _build_layout() -> void:
 				var x := ic.x * tm + cos(a) * r; var z := ic.y * tm + sin(a) * r * 0.8
 				places.append([x, z, 8.0 + 3.0 * _h(k, 5, 582), 6.5, 5.5 + 1.5 * _h(k, 6, 583), a + PI * 0.5, str(tw.id), k % count, false, float(k) / 16.0])
 			places.append([ic.x * tm + 8.0, ic.y * tm - 6.0, 22.0, 12.0, 7.0, 0.1, str(tw.id), 0, true, 0.0])   # the school hall
+	var kit_ok := ResourceLoader.exists(Assets3D.DIR + "houses/house_a.glb") and ResourceLoader.exists(Assets3D.DIR + "blocks/building-a.glb")
+	_kit_mats = Assets3D.kit_house_mats() if kit_ok else []
+	_kit_block_mats = Assets3D.kit_house_mats("block_palette_albedo.png", true) if kit_ok else []
 	for kind in [false, true]:
 		var sel: Array = places.filter(func(p): return p[8] == kind)
 		if sel.is_empty(): continue
+		if not _kit_mats.is_empty():
+			_build_kit_houses(sel, walls, block if kind else house, hmat, kind)
+			continue
 		var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_colors = true; mm.use_custom_data = true
 		mm.mesh = block if kind else house; mm.instance_count = sel.size()
 		var mp: Array = []
@@ -769,6 +796,12 @@ func _build_layout() -> void:
 				gm.set_instance_color(k * 2 + q, Color(0.9 + 0.2 * _h(k, q, 614), 1.0, 0.85))
 		var gmi := MultiMeshInstance3D.new(); gmi.multimesh = gm; var tm3 := Look3D.tree_mat(); gmi.material_override = tm3
 		_root_infra.add_child(gmi)
+		if ResourceLoader.exists(Assets3D.DIR + "trees/broad_lod1.glb"):   # the same garden trees as the CC0 broadleaf model near the camera; the generated blob only beyond 900 m
+			var gx: Array = []; var gc: Array = []
+			for i in gm.instance_count: gx.append(gm.get_instance_transform(i)); gc.append(gm.get_instance_color(i))
+			if quality != "low": Assets3D.forest_lod(_root_infra, "broad", gx, gc, 0, 160.0, 0.0, 190.0, quality == "high")
+			Assets3D.forest_lod(_root_infra, "broad", gx, gc, 1, 320.0, 150.0 if quality != "low" else 0.0, 900.0, false)
+			gmi.visibility_range_begin = 850.0; gmi.visibility_range_begin_margin = 80.0; gmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	_tp("houses")
 	if gen: _build_town_lamps(tg.lamps)
 	elif not area_tg.is_empty(): _build_town_lamps(area_tg.lamps)
@@ -784,6 +817,90 @@ func _build_layout() -> void:
 	for b in model.get("batteries", []): _build_battery(b)
 	if model.has("island_c"): _build_lighthouse(model.island_c)
 	_build_trawler()
+
+## Which kit model a place gets: any house at random; a block by closeness of its height to the place's (a tower file above 19 m).
+func _kit_pick(blocks: bool, h: float, q: int, n: int) -> int:
+	if not blocks: return mini(int(_h(q, 11, 593) * n), n - 1)
+	var lo := 4 if h > 19.0 else 0
+	var best := lo; var second := lo
+	for i in 4:
+		var d := absf(float(Assets3D.BLOCK_HEIGHT[lo + i]) - h)
+		if d < absf(float(Assets3D.BLOCK_HEIGHT[best]) - h): second = best; best = lo + i
+		elif lo + i != best and (second == best or d < absf(float(Assets3D.BLOCK_HEIGHT[second]) - h)): second = lo + i
+	return second if _h(q, 13, 595) > 0.55 else best
+
+var _kit_block_mats: Array = []   # the same for the blocks (the Commercial kit's palette; lit bays from the wall grid)
+var _kit_mats: Array = []   # the near house LOD's four shader materials (Assets3D.kit_house_mats): Province3D sets their night
+const HOUSE_CHUNK := 250.0
+
+## Houses as chunked MultiMeshes with two LODs: the Kenney kit models (PBR, a lit pane each) within `near` metres, the generated box beyond it.
+## Both carry the engine's per-building energy in INSTANCE_CUSTOM.r, and both are listed in _town_inst, so the lit and dark waves reach each.
+func _build_kit_houses(sel: Array, walls: Array, box: Mesh, hmat: Material, blocks := false) -> void:
+	var near := 1300.0 if quality == "high" else (900.0 if quality == "medium" else 450.0)
+	var mats: Array = _kit_block_mats if blocks else _kit_mats
+	var meshes: Array = []   # [mesh, height in metres]
+	if blocks:
+		for t in [false, true]:
+			for i in (Assets3D.TOWERS if t else Assets3D.BLOCKS).size(): meshes.append([Assets3D.province_block(t, i), Assets3D.BLOCK_HEIGHT[int(t) * 4 + i]])
+	else:
+		for k in Assets3D.HOUSES.size(): meshes.append([Assets3D.province_house(k), 1.0])
+	for m in meshes:
+		var nm: Array = (m[0] as ArrayMesh).get_meta("names")
+		for si in nm.size(): (m[0] as ArrayMesh).surface_set_material(si, mats[Assets3D.KIT_SURFACES.find(str(nm[si]))])
+	var chunks := {}
+	for q in sel.size():
+		var key := Vector2i(floori(float(sel[q][0]) / HOUSE_CHUNK), floori(float(sel[q][1]) / HOUSE_CHUNK))
+		if not chunks.has(key): chunks[key] = []
+		(chunks[key] as Array).append(q)
+	for key in chunks:
+		var ids: Array = chunks[key]
+		var far_mm := MultiMesh.new(); far_mm.transform_format = MultiMesh.TRANSFORM_3D; far_mm.use_colors = true; far_mm.use_custom_data = true
+		far_mm.mesh = box; far_mm.instance_count = ids.size()
+		var far_idx := _house_mm.size()
+		_house_mm.append(far_mm); _house_map.append([])
+		var by_kind := {}
+		for i in ids.size():
+			var q: int = ids[i]; var p: Array = sel[q]
+			var x: float = p[0]; var z: float = p[1]
+			var g := minf(minf(ground(x - p[2] * 0.5, z), ground(x + p[2] * 0.5, z)), minf(ground(x, z - p[3] * 0.5), ground(x, z + p[3] * 0.5)))
+			var col: Color = walls[q % walls.size()]; var seed := _h(q, 7, 591)
+			far_mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, p[5]).scaled(Vector3(p[2], p[4], p[3])), Vector3(x, g - 0.4, z)))
+			far_mm.set_instance_color(i, col if not blocks else Color(0.8, 0.8, 0.78)); far_mm.set_instance_custom_data(i, Color(0, seed, 0, 0))
+			var kd := _kit_pick(blocks, float(p[4]), q, meshes.size())
+			if not by_kind.has(kd): by_kind[kd] = []
+			(by_kind[kd] as Array).append(i)
+			if not _town_inst.has(p[6]): _town_inst[p[6]] = []
+			var dist := float(p[9]) + 0.06 * _h(q, 9, 592)
+			(_town_inst[p[6]] as Array).append([far_idx, i, int(p[7]), dist])
+		var fm := MultiMeshInstance3D.new(); fm.name = "HousesFar_%d_%d" % [key.x, key.y]; fm.multimesh = far_mm; fm.material_override = hmat
+		fm.visibility_range_begin = near + 20.0; fm.visibility_range_begin_margin = 20.0; fm.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		_root_infra.add_child(fm)
+		for kd in by_kind:
+			var kids: Array = by_kind[kd]
+			var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_colors = true; mm.use_custom_data = true
+			mm.mesh = meshes[kd][0]; mm.instance_count = kids.size()
+			var mi_idx := _house_mm.size()
+			_house_mm.append(mm); _house_map.append([])
+			for j in kids.size():
+				var i: int = kids[j]; var q: int = ids[i]; var p: Array = sel[q]
+				var x: float = p[0]; var z: float = p[1]
+				var g := minf(minf(ground(x - p[2] * 0.5, z), ground(x + p[2] * 0.5, z)), minf(ground(x, z - p[3] * 0.5), ground(x, z + p[3] * 0.5)))
+				var sc := clampf((float(p[2]) / 10.0 + float(p[3]) / 8.0) * 0.5, 0.85, 1.3)
+				var turn: float = p[10] if p.size() > 10 else PI * 0.5 * floorf(_h(q, 12, 594) * 4.0)
+				if blocks: sc = clampf(float(p[4]) / float(meshes[kd][1]), 0.55, 1.25); turn = PI * floorf(_h(q, 12, 594) * 2.0)
+				mm.set_instance_transform(j, Transform3D(Basis(Vector3.UP, float(p[5]) + turn).scaled(Vector3(sc, sc, sc)), Vector3(x, g - 0.2, z)))
+				mm.set_instance_color(j, (walls[q % walls.size()] * 1.25) if not blocks else Color(0.86, 0.86, 0.84)); mm.set_instance_custom_data(j, Color(0, _h(q, 7, 591), 0, 0))
+				(_town_inst[p[6]] as Array).append([mi_idx, j, int(p[7]), float(p[9]) + 0.06 * _h(q, 9, 592)])
+			var nm := MultiMeshInstance3D.new(); nm.name = "HousesNear_%d_%d_%d" % [key.x, key.y, kd]; nm.multimesh = mm
+			nm.visibility_range_end = near + 40.0; nm.visibility_range_end_margin = 20.0; nm.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			nm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if quality != "low" else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_root_infra.add_child(nm)
+
+func _new_street_mat() -> ShaderMaterial:
+	var m := ShaderMaterial.new(); m.shader = load("res://world3d/shaders/street.gdshader")
+	var a := _tex("asphalt_albedo")
+	if a != null: m.set_shader_parameter("asp_a", a); m.set_shader_parameter("asphalt", true)
+	return m
 
 func _glow_mat(col: Color, power := 2.0, pulse := 0.0) -> ShaderMaterial:
 	var m := ShaderMaterial.new(); m.shader = load("res://world3d/shaders/glow.gdshader")
@@ -1327,11 +1444,13 @@ func _build_sea_cable(l: Dictionary) -> void:
 # --------------------------------------------------------------------------------------------------------------------
 func _update_dynamic() -> void:
 	var mn := ShiftReport.night_hold(float(model.get("minute", 720.0)))   # 1128c: a failed report holds the night (windows and lamps too)
+	if OS.is_debug_build() and OS.has_environment("CB_SKY_MIN"): mn = float(OS.get_environment("CB_SKY_MIN"))   # audit shots: a fixed clock for the sky, windows and lamps (the engine's own numbers are not touched)
 	var n := WorldMath.night(mn)
 	_update_sky(mn)
 	var by_id := {}
 	for t in model.towns: by_id[str(t.id)] = t
 	if _hmat != null: _hmat.set_shader_parameter("night", n)
+	for km in _kit_mats: (km as ShaderMaterial).set_shader_parameter("night", n)
 	for id in _town_inst:   # a change in a town's energies starts a wave from its centre (the first model applies at once)
 		var tw: Dictionary = by_id.get(id, {})
 		var sig := str(tw.get("energies", [])) + str(tw.get("v", 0.0) > 0.0)

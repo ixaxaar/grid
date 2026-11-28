@@ -17,6 +17,10 @@ uniform sampler2D pano : filter_linear_mipmap, repeat_enable;   // CC0 pass: Pol
 uniform float pano_k = 0.0;        // 0 = the generated sky only
 uniform float pano_gain = 0.35;
 uniform vec2 pano_moon = vec2(0.62, 0.295);   // where the moon sits in the file: longitude and elevation (radians)
+uniform sampler2D pano_day : filter_linear_mipmap, repeat_enable;   // Poly Haven Kloofendal 48d Partly Cloudy (Pure Sky): midday, its sun turned to the scene's sun
+uniform float pano_day_k = 0.0;
+uniform float pano_day_gain = 0.8;
+uniform vec2 pano_sun = vec2(0.595, 0.838);   // the sun in the day file: longitude and elevation (radians)
 uniform sampler2D noise : filter_linear_mipmap, repeat_enable;
 
 float h31(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -42,6 +46,15 @@ void sky() {
 		vec3 pc = min(textureLod(pano, uv, 0.0).rgb, vec3(6.0)) * pano_gain;
 		col = mix(col, pc, night * pano_k * smoothstep(-0.05, 0.03, up));
 	}
+	// the day panorama, turned in azimuth and tilted so its sun sits at the light's direction; golden hour keeps the generated gradient and its warm glow
+	if (pano_day_k > 0.0 && night < 0.98 && up > -0.05 && LIGHT0_ENABLED) {
+		vec3 sd2 = normalize(LIGHT0_DIRECTION);
+		float lon = atan(d.x, -d.z) - atan(sd2.x, -sd2.z) + pano_sun.x;
+		float el = asin(clamp(d.y, -1.0, 1.0)) - (asin(clamp(sd2.y, -1.0, 1.0)) - pano_sun.y);
+		vec2 uv = vec2(lon / 6.2831853 + 0.5, 0.5 - el / 3.1415927);
+		vec3 dc = min(textureLod(pano_day, uv, 0.0).rgb, vec3(4.0)) * pano_day_gain;
+		col = mix(col, dc, (1.0 - night) * (1.0 - clamp(dusk * 1.4, 0.0, 1.0)) * pano_day_k * smoothstep(-0.05, 0.03, up));
+	}
 	// stars and the moon
 	if (night > 0.05 && up > 0.0 && pano_k < 0.5) {
 		vec3 q = floor(d * 380.0);
@@ -51,8 +64,8 @@ void sky() {
 		float mc = dot(d, normalize(moon_dir));
 		col += vec3(0.9, 0.93, 1.0) * (smoothstep(0.9993, 0.9996, mc) * 1.4 + pow(max(mc, 0.0), 80.0) * 0.08) * night;
 	}
-	// clouds: a plane at 2.5 km, drifting
-	if (up > 0.01) {
+	// clouds: a plane at 2.5 km, drifting (the day panorama has its own)
+	if (up > 0.01 && pano_day_k < 0.5) {
 		vec2 cp = d.xz / (d.y + 0.08) * 0.32 + vec2(TIME * 0.0016, TIME * 0.0006);
 		float n = texture(noise, cp).r * 0.65 + texture(noise, cp * 2.9 + 0.3).r * 0.35;
 		float cov = smoothstep(1.0 - cloud_cover, 1.0 - cloud_cover + 0.28, n);

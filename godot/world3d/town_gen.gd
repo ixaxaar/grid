@@ -6,7 +6,7 @@ extends RefCounted
 ## round the town by angle, so a 21 % shed is a 21 % wedge of streets) and its distance from the centre (lights come on and go out in a
 ## wave outward from the substation). Presentation only.
 
-## Returns {places: [[x, z, w, d, h, rot, town_id, idx, big, dn]], streets: [[a: Vector2, b: Vector2, width, town]], lamps: [[Vector3, town_id, dn]],
+## Returns {places: [[x, z, w, d, h, rot, town_id, idx, big, dn, front_turn]], streets: [[a: Vector2, b: Vector2, width, town]], lamps: [[Vector3, town_id, dn]],
 ## centres: [[Vector2, town_id, rot]]}.
 ## 1.18 (lead's art review: "a square grid with a pale halo"): streets grow the way a town grows. A main street follows the town's road and bends
 ## with it; side streets leave it at uneven gaps and angles and wander; some side streets carry a back lane; where the river passes, a street
@@ -103,7 +103,7 @@ static func build(gf, model: Dictionary, quality: String, ground: Callable) -> D
 						w = 16.0 + 8.0 * hh; dd = 14.0 + 6.0 * WorldMath.hash2(si, hq, 910); h = 20.0 + 26.0 * WorldMath.hash2(hq, si, 911)
 					var ang := atan2(-along.y, along.x)
 					var idx := int(fposmod(atan2((p - c).y, (p - c).x) - rot, TAU) / TAU * count) % count
-					places.append([p.x, p.y, w, dd, h, ang + (WorldMath.hash2(hq, si, 909) - 0.5) * 0.06, id, idx, (core and hh > 0.4) or h > 19.0, dn])
+					places.append([p.x, p.y, w, dd, h, ang + (WorldMath.hash2(hq, si, 909) - 0.5) * 0.06, id, idx, (core and hh > 0.4) or h > 19.0, dn, 0.0 if side > 0.0 else PI])   # [10]: the turn that puts a kit house's front (+Z) to the street
 			var ls := 15.0; var lq := 0
 			while ls < L - 10.0:
 				var side2 := 1.0 if lq % 2 == 0 else -1.0

@@ -120,6 +120,90 @@ static func dim_mats(mats: Dictionary, dark: bool) -> void:
 		(p[0] as StandardMaterial3D).albedo_color = (p[1] as Color) * (Color(0.42, 0.44, 0.52) if dark else Color.WHITE)
 
 # --------------------------------------------------------------------------------------------------------------------
+# Province houses (near LOD of the MultiMesh towns; the far LOD stays the generated box, Props3D.house)
+# --------------------------------------------------------------------------------------------------------------------
+static var _pv := {}
+const KIT_SURFACES := ["trim", "wall", "roof", "window"]
+
+## House `kind` (HOUSES) as one ArrayMesh with the surfaces KIT_SURFACES in that order. The lit and the dark panes of the file are one surface, each
+## pane's hash in UV2.x so the shader can switch panes one by one against the building's energy.
+static func province_house(kind: int) -> ArrayMesh:
+	return province_mesh("houses/" + HOUSES[kind % HOUSES.size()])
+
+## Low-rise blocks and towers of the Kenney Commercial kit (assets/blocks), in the same four surfaces. `i` indexes BLOCKS or TOWERS.
+const BLOCKS := ["building-a", "building-c", "building-f", "building-h"]
+const TOWERS := ["building-skyscraper-a", "building-skyscraper-b", "building-skyscraper-c", "building-skyscraper-e"]
+const BLOCK_HEIGHT := [19.3, 11.5, 24.7, 20.5, 33.9, 52.7, 52.9, 50.4]   # the files' heights (m): BLOCKS then TOWERS
+static func province_block(tower: bool, i: int) -> ArrayMesh:
+	var l: Array = TOWERS if tower else BLOCKS
+	return province_mesh("blocks/" + l[i % l.size()])
+
+static func province_mesh(id: String) -> ArrayMesh:
+	if _pv.has(id): return _pv[id]
+	var by := {"trim": [], "wall": [], "roof": [], "window": []}
+	for e in meshes(id):
+		var m: Mesh = e.mesh; var xf: Transform3D = e.xf
+		for si in m.get_surface_count():
+			var mn := mat_name(m, si)
+			if mn == "window_dark": mn = "window"
+			if by.has(mn): (by[mn] as Array).append([m.surface_get_arrays(si), xf])
+	var am := ArrayMesh.new(); var names := []
+	for name in KIT_SURFACES:
+		var vs := PackedVector3Array(); var ns := PackedVector3Array(); var uv := PackedVector2Array(); var ix := PackedInt32Array()
+		for part in by[name]:
+			var a: Array = part[0]; var xf: Transform3D = part[1]
+			var base := vs.size()
+			var pv: PackedVector3Array = a[Mesh.ARRAY_VERTEX]; var pn: PackedVector3Array = a[Mesh.ARRAY_NORMAL]; var pu: PackedVector2Array = a[Mesh.ARRAY_TEX_UV]
+			for i in pv.size():
+				vs.append(xf * pv[i]); ns.append((xf.basis * pn[i]).normalized()); uv.append(pu[i] if pu.size() > i else Vector2.ZERO)
+			for j in (a[Mesh.ARRAY_INDEX] as PackedInt32Array): ix.append(base + j)
+		if vs.is_empty(): continue
+		var arr := []; arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = vs; arr[Mesh.ARRAY_NORMAL] = ns; arr[Mesh.ARRAY_TEX_UV] = uv; arr[Mesh.ARRAY_INDEX] = ix
+		if name == "window": arr[Mesh.ARRAY_TEX_UV2] = _pane_hash(vs, ix)
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr); names.append(name)
+	am.set_meta("names", names)   # a file may have no roof or no window: the surface order is these names, not KIT_SURFACES
+	_pv[id] = am
+	return am
+
+## UV2.x per vertex: a hash in 0..1 of the pane (the connected set of triangles, vertices welded to 1 cm) the vertex belongs to.
+static func _pane_hash(vs: PackedVector3Array, ix: PackedInt32Array) -> PackedVector2Array:
+	var par := PackedInt32Array(); par.resize(vs.size())
+	for i in vs.size(): par[i] = i
+	var key := {}
+	for i in vs.size():
+		var k := Vector3i(roundi(vs[i].x * 100.0), roundi(vs[i].y * 100.0), roundi(vs[i].z * 100.0))
+		if key.has(k): par[i] = key[k]
+		else: key[k] = i
+	var find := func(x: int) -> int:
+		while par[x] != x: par[x] = par[par[x]]; x = par[x]
+		return x
+	for t in ix.size() / 3:
+		var r0: int = find.call(ix[t * 3])
+		for c in [1, 2]:
+			var r1: int = find.call(ix[t * 3 + c])
+			if r1 != r0: par[r1] = r0
+	var out := PackedVector2Array(); out.resize(vs.size())
+	for i in vs.size():
+		var r: int = find.call(i)
+		out[i] = Vector2(WorldMath.hash2(r, 17, 4242), 0.0)
+	return out
+
+## The four materials of the near house LOD, in KIT_SURFACES order (shaders/house_kit.gdshader). Province3D drives `night` on all of them.
+static func kit_house_mats(palette := "house_palette_albedo.png", grid := false) -> Array:
+	var sh: Shader = load("res://world3d/shaders/house_kit.gdshader")
+	var out: Array = []
+	var sets := [[palette, "", ""], ["plaster_albedo.jpg", "plaster_normal.jpg", "plaster_rough.jpg"], ["roof_albedo.jpg", "roof_normal.jpg", "roof_rough.jpg"], ["", "", ""]]
+	for mode in 4:
+		var m := ShaderMaterial.new(); m.shader = sh; m.set_shader_parameter("mode", mode); m.set_shader_parameter("grid", grid)
+		var set: Array = sets[mode]
+		if set[0] != "": m.set_shader_parameter("alb", tex(set[0]))
+		if set[1] != "": m.set_shader_parameter("nrm", tex(set[1]))
+		if set[2] != "": m.set_shader_parameter("rgh", tex(set[2]))
+		out.append(m)
+	return out
+
+# --------------------------------------------------------------------------------------------------------------------
 # Trees (Poly Haven fir_tree_01 and tree_small_02, alpha-card LODs cut in Blender, see docs/ASSETS.md)
 # --------------------------------------------------------------------------------------------------------------------
 static var _tree_mats := {}
@@ -170,7 +254,7 @@ static func _add_core(am: ArrayMesh, kind: String, h: float) -> void:
 				var v00: Vector3 = q.call(b0, a0); var v01: Vector3 = q.call(b0, a1); var v10: Vector3 = q.call(b1, a0); var v11: Vector3 = q.call(b1, a1)
 				_tri_out(st, v00, v10, v11, ((v00 + v10 + v11) / 3.0 - c).normalized())
 				if j > 0: _tri_out(st, v00, v11, v01, ((v00 + v11 + v01) / 3.0 - c).normalized())
-	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.10, 0.19, 0.10); m.roughness = 1.0; m.vertex_color_use_as_albedo = true
+	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.20, 0.33, 0.13); m.roughness = 1.0; m.vertex_color_use_as_albedo = true
 	var arr := st.commit().surface_get_arrays(0)
 	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr); am.surface_set_material(am.get_surface_count() - 1, m)
 
@@ -225,6 +309,31 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 				if lod == 0: mi.visibility_range_end = near + 40.0; mi.visibility_range_end_margin = 20.0; mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 				else: mi.visibility_range_begin = near + 20.0; mi.visibility_range_begin_margin = 20.0; mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if (lod == 0 and quality == "high") else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+## One LOD of a province wood as MultiMeshes in `cell` m cells, drawn between `vmin` and `vmax` m from the camera (dithered at both ends).
+## `xf` carries the tree's height in its basis scale, as Province3D's procedural trees do; `kind` is "fir_a", "fir_b" or "broad".
+static func forest_lod(root: Node3D, kind: String, xf: Array, cols: Array, lod: int, cell: float, vmin: float, vmax: float, shadow: bool) -> void:
+	var groups := {}
+	for i in xf.size():
+		var o: Vector3 = (xf[i] as Transform3D).origin
+		var key := Vector2i(floori(o.x / cell), floori(o.z / cell))
+		if not groups.has(key): groups[key] = []
+		(groups[key] as Array).append(i)
+	var h := _trunk_h(kind)
+	var mesh := tree_mesh(kind, lod)
+	for key in groups:
+		var ids: Array = groups[key]
+		var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_colors = true; mm.mesh = mesh; mm.instance_count = ids.size()
+		for q in ids.size():
+			var t: Transform3D = xf[ids[q]]
+			mm.set_instance_transform(q, Transform3D(t.basis.scaled_local(Vector3.ONE / h), t.origin))
+			var c: Color = cols[ids[q]]
+			mm.set_instance_color(q, Color(clampf(c.r / 1.2, 0.0, 1.0), clampf(c.g / 1.2, 0.0, 1.0), clampf(c.b / 1.2, 0.0, 1.0)))
+		var mi := MultiMeshInstance3D.new(); mi.name = "Wood_%s_L%d_%d_%d" % [kind, lod, key.x, key.y]; mi.multimesh = mm; root.add_child(mi)
+		if vmin > 0.0: mi.visibility_range_begin = vmin; mi.visibility_range_begin_margin = vmin * 0.1
+		if vmax > 0.0: mi.visibility_range_end = vmax; mi.visibility_range_end_margin = vmax * 0.1
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## Trunk height of a tree file (the cards reach a little beyond it): the unit the scene's tree scale is given in.
 static func _trunk_h(kind: String) -> float:
