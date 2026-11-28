@@ -34,3 +34,50 @@ Every GRID sound is made in code (`godot/audio/grid_audio.gd`, `grid_music.gd`).
 - **Outdoor bed in the 3D look (new in 1.16):** `OutdoorSynth` adds wind (low-passed noise with slow gusts, quieter at night) and crickets at night (4.6 kHz chirps in groups of three). It is silent on every classic screen.
 - **Key moments (1.18):** `town_on0..2` (a warm chord that swells in, three sizes by homes lit), the redesigned `blackout` (hum spin-down, a low thud, then silence), and saturated low thumps in the breaker and trip cues so they carry on small speakers are all made in code (sine sums, noise bursts, tanh saturation). No files, no source, no licence. Levels and the numbers behind them are in `docs/audio/ANALYSIS.md`. No human has listened to any of it.
 - **No human has listened to the outdoor bed yet.** The levels were chosen by reading the code, not by ear.
+
+## CC0 asset pass, WO-23 benchmark (11-28)
+Licences checked on the sites: Poly Haven https://polyhaven.com/license (all assets CC0); ambientCG https://docs.ambientcg.com/license/ (all assets CC0 1.0); Kenney asset page states "License: Creative Commons CC0" and the pack's License.txt says CC0. Textures are in godot/world3d/tex (imported with mipmaps, VRAM compressed). Models are in godot/world3d/assets as .glb with geometry and UVs only; the materials are built in code (world3d/assets3d.gd). The Blender scripts that cut them are in tools/blender/.
+
+### Textures
+| File | Site | Asset | Author | Source URL | Licence | Resolution | Used for |
+|---|---|---|---|---|---|---|---|
+| roof_albedo.jpg | ambientCG | RoofingTiles006 | ambientCG (Lennart Demes) | https://ambientcg.com/a/RoofingTiles006 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | roofs of the L23 estate houses (colour) |
+| roof_normal.jpg | ambientCG | RoofingTiles006 | ambientCG (Lennart Demes) | https://ambientcg.com/a/RoofingTiles006 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | roofs of the L23 estate houses (normal map) |
+| roof_rough.jpg | ambientCG | RoofingTiles006 | ambientCG (Lennart Demes) | https://ambientcg.com/a/RoofingTiles006 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | roofs of the L23 estate houses (roughness) |
+| plaster_albedo.jpg | ambientCG | Plaster001 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Plaster001 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | walls of the L23 estate houses (tinted) (colour) |
+| plaster_normal.jpg | ambientCG | Plaster001 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Plaster001 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | walls of the L23 estate houses (tinted) (normal map) |
+| plaster_rough.jpg | ambientCG | Plaster001 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Plaster001 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | walls of the L23 estate houses (tinted) (roughness) |
+| gravel_albedo.jpg | ambientCG | Gravel023 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Gravel023 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 substation yard ground (terrain shader) (colour) |
+| gravel_normal.jpg | ambientCG | Gravel023 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Gravel023 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 substation yard ground (terrain shader) (normal map) |
+| gravel_rough.jpg | ambientCG | Gravel023 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Gravel023 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 substation yard ground (terrain shader) (roughness) |
+| asphalt_albedo.jpg | ambientCG | Asphalt031 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Asphalt031 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 estate street (colour) |
+| asphalt_normal.jpg | ambientCG | Asphalt031 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Asphalt031 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 estate street (normal map) |
+| asphalt_rough.jpg | ambientCG | Asphalt031 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Asphalt031 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 estate street (roughness) |
+| concrete_albedo.jpg | ambientCG | Concrete034 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Concrete034 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 transformer pads (colour) |
+| concrete_normal.jpg | ambientCG | Concrete034 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Concrete034 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 transformer pads (normal map) |
+| concrete_rough.jpg | ambientCG | Concrete034 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Concrete034 | CC0 1.0 | 1024x1024 (1K-JPG, re-saved q88) | L23 transformer pads (roughness) |
+| tree_fir_twig_albedo.png | Poly Haven | Fir Tree 01 (twig diff + twig alpha) | Rob Tuytel (photography), Rico Cilliers (modelling) | https://polyhaven.com/a/fir_tree_01 | CC0 1.0 | 1024x1024 RGBA | foliage cards of the L23 fir LODs |
+| tree_fir_trunk_a_albedo.jpg / tree_fir_trunk_b_albedo.jpg | Poly Haven | Fir Tree 01 (trunk a, trunk b diff) | Rob Tuytel, Rico Cilliers | https://polyhaven.com/a/fir_tree_01 | CC0 1.0 | 512x512 | fir trunks |
+| tree_broad_leaf_albedo.png | Poly Haven | Tree Small 02 (leaves diff + alpha) | Poly Haven staff (see asset page) | https://polyhaven.com/a/tree_small_02 | CC0 1.0 | 1024x1024 RGBA | leaf cards of the broadleaf LODs |
+| tree_broad_trunk_albedo.jpg | Poly Haven | Tree Small 02 (diff) | Poly Haven staff | https://polyhaven.com/a/tree_small_02 | CC0 1.0 | 512x512 | broadleaf trunk |
+| house_palette_albedo.png | Kenney | City Kit (Suburban) 2.0, colormap | Kenney | https://kenney.nl/assets/city-kit-suburban | CC0 1.0 | 512x512 | door, frames, chimney of the houses |
+
+### Models
+| File | Site | Asset | Author | Source URL | Licence | Used for | Note |
+|---|---|---|---|---|---|---|---|
+| assets/houses/house_a.glb | Kenney | City Kit (Suburban) building-type-a | Kenney | https://kenney.nl/assets/city-kit-suburban | CC0 1.0 | L23 estate houses | Re-cut in Blender: scaled to about 10 m, split into trim/wall/roof/window surfaces by palette colour, metre UVs on wall and roof |
+| assets/houses/house_c.glb | Kenney | City Kit (Suburban) building-type-c | Kenney | https://kenney.nl/assets/city-kit-suburban | CC0 1.0 | L23 estate houses | Re-cut in Blender: scaled to about 10 m, split into trim/wall/roof/window surfaces by palette colour, metre UVs on wall and roof |
+| assets/houses/house_e.glb | Kenney | City Kit (Suburban) building-type-e | Kenney | https://kenney.nl/assets/city-kit-suburban | CC0 1.0 | L23 estate houses | Re-cut in Blender: scaled to about 10 m, split into trim/wall/roof/window surfaces by palette colour, metre UVs on wall and roof |
+| assets/houses/house_g.glb | Kenney | City Kit (Suburban) building-type-g | Kenney | https://kenney.nl/assets/city-kit-suburban | CC0 1.0 | L23 estate houses | Re-cut in Blender: scaled to about 10 m, split into trim/wall/roof/window surfaces by palette colour, metre UVs on wall and roof |
+| assets/houses/house_k.glb | Kenney | City Kit (Suburban) building-type-k | Kenney | https://kenney.nl/assets/city-kit-suburban | CC0 1.0 | L23 estate houses | Re-cut in Blender: scaled to about 10 m, split into trim/wall/roof/window surfaces by palette colour, metre UVs on wall and roof |
+| assets/houses/house_t.glb | Kenney | City Kit (Suburban) building-type-t | Kenney | https://kenney.nl/assets/city-kit-suburban | CC0 1.0 | L23 estate houses | Re-cut in Blender: scaled to about 10 m, split into trim/wall/roof/window surfaces by palette colour, metre UVs on wall and roof |
+| assets/trees/fir_a_lod0.glb, fir_a_lod1.glb | Poly Haven | Fir Tree 01 (variant a) | Rob Tuytel, Rico Cilliers | https://polyhaven.com/a/fir_tree_01 | CC0 1.0 | L23 forest (conifers) | LOD0 about 6.2k tris, LOD1 about 720: trunk decimated, foliage = a random subset of the twig islands rebuilt as one scaled quad each; see tools/blender/ |
+| assets/trees/fir_b_lod0.glb, fir_b_lod1.glb | Poly Haven | Fir Tree 01 (variant b) | Rob Tuytel, Rico Cilliers | https://polyhaven.com/a/fir_tree_01 | CC0 1.0 | L23 forest (conifers) | LOD0 about 6.2k tris, LOD1 about 720: trunk decimated, foliage = a random subset of the twig islands rebuilt as one scaled quad each; see tools/blender/ |
+| assets/trees/broad_lod0.glb, broad_lod1.glb | Poly Haven | Tree Small 02 | Poly Haven staff | https://polyhaven.com/a/tree_small_02 | CC0 1.0 | L23 forest (broadleaf, birch) | same method |
+| assets/props/street_lamp_01.glb | Poly Haven | Street Lamp 01 | Josh Dean | https://polyhaven.com/a/street_lamp_01 | CC0 1.0 | L23 estate street lamps | decimated to 2.5k tris, textures 512 embedded |
+| assets/props/flood_head.glb | Poly Haven | Flood Lights (wall light + base) | Poly Haven staff (see asset page) | https://polyhaven.com/a/flood_lights | CC0 1.0 | L23 floodlight mast heads | decimated to 700 tris |
+| assets/props/utility_box_01.glb | Poly Haven | Utility Box 01 | James Ray Cock | https://polyhaven.com/a/utility_box_01 | CC0 1.0 | L23 boxes behind the switchgear | decimated to 800 tris |
+| assets/props/security_light.glb | Poly Haven | Security Light | Maximilian Schuster | https://polyhaven.com/a/security_light | CC0 1.0 | L23 section end walls | decimated to 700 tris |
+| assets/props/covered_car.glb | Poly Haven | Covered Car | MP | https://polyhaven.com/a/covered_car | CC0 1.0 | L23 estate car park | decimated to 3k tris |
+
+Not used: Poly Haven pine_tree_01 (905 MB source, not needed: the fir covers the conifers), street_lamp_02, modular_chainlink_fence (the generated shader fence stays; 525 modules of 3k triangles would not hold the low tier). Night HDRI: see the sky note in the report if it was used.
