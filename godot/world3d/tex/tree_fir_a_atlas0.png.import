@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bxmfn3rqjuhvy"
-path.s3tc="res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.s3tc.ctex"
-path.etc2="res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.etc2.ctex"
+uid="uid://brs5lfubg6mdd"
+path.s3tc="res://.godot/imported/tree_fir_a_atlas0.png-5fd6526575c897e38bca72b334e2a844.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_fir_a_atlas0.png-5fd6526575c897e38bca72b334e2a844.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://world3d/tex/tree_birch_bark_albedo.jpg"
-dest_files=["res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.s3tc.ctex", "res://.godot/imported/tree_birch_bark_albedo.jpg-98c469b8867644f4340d2e9379370e90.etc2.ctex"]
+source_file="res://world3d/tex/tree_fir_a_atlas0.png"
+dest_files=["res://.godot/imported/tree_fir_a_atlas0.png-5fd6526575c897e38bca72b334e2a844.s3tc.ctex", "res://.godot/imported/tree_fir_a_atlas0.png-5fd6526575c897e38bca72b334e2a844.etc2.ctex"]
 
 [params]
 

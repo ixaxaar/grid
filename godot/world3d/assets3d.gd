@@ -214,37 +214,63 @@ static func kit_house_mats(palette := "house_palette_albedo.png", grid := false)
 # Trees (Poly Haven fir_tree_01 and tree_small_02, alpha-card LODs cut in Blender, see docs/ASSETS.md)
 # --------------------------------------------------------------------------------------------------------------------
 static var _tree_mats := {}
-static func _tree_mat(kind: String) -> Dictionary:
-	if _tree_mats.has(kind): return _tree_mats[kind]
+static func _tree_mat(kind: String, lod: int) -> Dictionary:
+	var mkey := "%s%d" % [kind, lod]
+	if _tree_mats.has(mkey): return _tree_mats[mkey]
 	var tw := StandardMaterial3D.new()
-	tw.albedo_texture = tex({"fir_a": "tree_spray_fir.png", "fir_b": "tree_spray_fir.png", "birch": "tree_leaf_birch.png", "shrub": "tree_leaf_shrub.png"}.get(kind, "tree_leaf_oak.png") as String)
+	tw.albedo_texture = tex("tree_%s_atlas%d.png" % [kind, lod])   # baked from the scan's own needles or leaves, cluster by cluster (tools/blender/recut.py)
 	tw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; tw.alpha_scissor_threshold = 0.32
 	tw.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
-	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(1.1, 1.12, 1.05)
+	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(0.58, 0.74, 0.62) if kind.begins_with("fir") else Color(1.0, 1.0, 0.95)   # the baked colours are the scan's: a conifer is darker and bluer
 	tw.backlight_enabled = true; tw.backlight = Color(0.30, 0.34, 0.22)
 	tw.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	var tr := StandardMaterial3D.new()
-	var bark := {"fir_a": "tree_fir_trunk_a_albedo.jpg", "fir_b": "tree_fir_trunk_b_albedo.jpg", "birch": "tree_birch_bark_albedo.jpg"}.get(kind, "tree_broad_trunk_albedo.jpg") as String
-	tr.albedo_texture = tex(bark)
+	tr.albedo_texture = tex("tree_%s_albedo.jpg" % ("fir_trunk_a" if kind == "fir_a" else ("fir_trunk_b" if kind == "fir_b" else "broad_trunk")))
 	tr.vertex_color_use_as_albedo = true; tr.roughness = 0.9
 	tr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	var d := {"trunk": tr, "bark": tr, "twig": tw}
-	_tree_mats[kind] = d; return d
-
-## Which broadleaf model a place gets (by position, so neighbours differ): oak mostly, a birch now and then; gardens add shrubs.
-const KINDS := ["fir_a", "fir_b", "broad", "birch", "shrub"]
-static func broad_kind(o: Vector3, garden := false) -> String:
-	var h := fposmod(sin(o.x * 12.9898 + o.z * 78.233) * 43758.5453, 1.0)
-	if garden and h > 0.78: return "shrub"
-	return "birch" if h < 0.3 else "broad"
+	_tree_mats[mkey] = d; return d
 
 static var _tree_meshes := {}
 static func tree_mesh(kind: String, lod: int) -> ArrayMesh:
 	var key := "%s%d" % [kind, lod]
 	if _tree_meshes.has(key): return _tree_meshes[key]
-	var am := merged("trees/%s_lod%d" % [kind, lod], _tree_mat(kind))
+	var am := merged("trees/%s_lod%d" % [kind, lod], _tree_mat(kind, lod))
+	if lod == 1: _add_core(am, kind, _trunk_h(kind))   # far: the dark mass of the wood; near, the cards sit on wood and the core would only show through
 	_tree_meshes[key] = am
 	return am
+
+## A dark solid inside the crown (tiered cones for a fir, an ellipsoid for the broadleaf): the foliage cards are a see-through spray on their
+## own; with a core behind them the tree reads as one dark mass, as a wood does at night from 100 m.
+static func _add_core(am: ArrayMesh, kind: String, h: float) -> void:
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := 9
+	if kind.begins_with("fir"):
+		for t in 3:
+			var y0 := h * (0.10 + 0.22 * t); var y1 := h * (0.46 + 0.27 * t); var r0 := h * 0.20 * (1.0 - 0.28 * t)
+			for i in seg:
+				var a0 := TAU * float(i) / seg; var a1 := TAU * float(i + 1) / seg
+				var p0 := Vector3(cos(a0) * r0, y0, sin(a0) * r0); var p1 := Vector3(cos(a1) * r0, y0, sin(a1) * r0); var tip := Vector3(0, y1, 0)
+				_tri_out(st, p0, tip, p1, Vector3(cos((a0 + a1) * 0.5), r0 / (y1 - y0), sin((a0 + a1) * 0.5)).normalized())
+	else:
+		var c := Vector3(0, h * 0.8, 0); var rx := h * 0.42; var ry := h * 0.34; var rings := 5
+		for j in rings:
+			var b0 := PI * float(j) / rings; var b1 := PI * float(j + 1) / rings
+			for i in seg:
+				var a0 := TAU * float(i) / seg; var a1 := TAU * float(i + 1) / seg
+				var q := func(b: float, a: float) -> Vector3: return c + Vector3(sin(b) * cos(a) * rx, cos(b) * ry, sin(b) * sin(a) * rx)
+				var v00: Vector3 = q.call(b0, a0); var v01: Vector3 = q.call(b0, a1); var v10: Vector3 = q.call(b1, a0); var v11: Vector3 = q.call(b1, a1)
+				_tri_out(st, v00, v10, v11, ((v00 + v10 + v11) / 3.0 - c).normalized())
+				if j > 0: _tri_out(st, v00, v11, v01, ((v00 + v11 + v01) / 3.0 - c).normalized())
+	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.20, 0.33, 0.13); m.roughness = 1.0; m.vertex_color_use_as_albedo = true
+	var arr := st.commit().surface_get_arrays(0)
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr); am.surface_set_material(am.get_surface_count() - 1, m)
+
+## One triangle whose front side (Godot: clockwise) faces `out`; every vertex takes `out` as its normal.
+static func _tri_out(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, out: Vector3) -> void:
+	var g := -(b - a).cross(c - a)
+	if g.dot(out) < 0.0: var t := b; b = c; c = t
+	st.set_normal(out); st.add_vertex(a); st.set_normal(out); st.add_vertex(b); st.set_normal(out); st.add_vertex(c)
 
 ## Draws the forest as MultiMeshes in 96 m cells: LOD0 within `near` m of a cell's centre (high tier), LOD1 beyond (and everywhere on low).
 ## `conifer` and `broad` are [Transform3D] / [Color] lists as Bench3D._trees builds them for the procedural trees (unit-height scale in y).
@@ -255,7 +281,7 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 		var xf: Array = cx if pass_i == 0 else bx; var cols: Array = cc if pass_i == 0 else bc
 		for i in xf.size():
 			var t: Transform3D = xf[i]
-			var kind := broad_kind(t.origin)
+			var kind := "broad"
 			if pass_i == 0: kind = "fir_a" if (int(absf(t.origin.x * 7.3 + t.origin.z * 3.1)) % 3) == 0 else "fir_b"
 			var kt := [[t, cols[i]]]
 			if quality != "low" and gy.is_valid():   # a second tree beside it: the wood is massed, not a scatter
@@ -270,7 +296,7 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 				var g2: Dictionary = groups[key2]
 				(g2.xf as Array).append(tt); (g2.col as Array).append(kk[1]); g2.c += tt.origin
 	var heights := {}
-	for k in KINDS:
+	for k in ["fir_a", "fir_b", "broad"]:
 		heights[k] = _trunk_h(k)
 	for key in groups:
 		var g: Dictionary = groups[key]; var n: int = (g.xf as Array).size(); var c: Vector3 = g.c / float(n)

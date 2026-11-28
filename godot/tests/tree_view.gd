@@ -19,7 +19,7 @@ func _initialize() -> void:
 	root.add_child(sun)
 	var ground := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(120, 120); ground.mesh = pm
 	var gm := StandardMaterial3D.new(); gm.albedo_color = Color(0.22, 0.34, 0.14); ground.material_override = gm; root.add_child(ground)
-	var kinds: Array = (OS.get_environment("CB_TREE_KINDS") if OS.get_environment("CB_TREE_KINDS") != "" else "fir_a,fir_b,broad,birch,shrub").split(",")
+	var kinds: Array = (OS.get_environment("CB_TREE_KINDS") if OS.get_environment("CB_TREE_KINDS") != "" else "fir_a,fir_b,broad").split(",")
 	for i in kinds.size():
 		var mi := MeshInstance3D.new(); mi.mesh = Assets3D.tree_mesh(kinds[i], lod)
 		var s := 10.0 / Assets3D._trunk_h(kinds[i])

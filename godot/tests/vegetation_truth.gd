@@ -159,6 +159,9 @@ func floating(name: String, parts: Array) -> Array:
 			for v in t:
 				bverts += 1
 				var ok: bool = near_trunk.call(v)
+				if not ok:   # a branch tip that ends inside a foliage card's box is in the foliage
+					for ci2 in comps.size():
+						if _in_box(v, fol, comps[ci2], tol): ok = true; break
 				if not ok:
 					for cj in is_anchored.keys(): if _inside(v, fol, comps[cj]): ok = true; break
 				if not ok: stray += 1
@@ -197,6 +200,11 @@ func floating(name: String, parts: Array) -> Array:
 	if bad > 0: print("  %s: %d of %d foliage islands float (tolerance %.2f m)" % [name, bad, seen, tol])
 	return [bad, seen]
 
+func _in_box(p: Vector3, fol: Array, ids: Array, pad: float) -> bool:
+	var lo := Vector3(INF, INF, INF); var hi := Vector3(-INF, -INF, -INF)
+	for i in ids: for v in fol[i]: lo = lo.min(v); hi = hi.max(v)
+	return p.x >= lo.x - pad and p.y >= lo.y - pad and p.z >= lo.z - pad and p.x <= hi.x + pad and p.y <= hi.y + pad and p.z <= hi.z + pad
+
 func _boxes_touch(fol: Array, a: Array, b: Array, tol: float) -> bool:
 	var la := Vector3(INF, INF, INF); var ha := Vector3(-INF, -INF, -INF); var lb := la; var hb := ha
 	for i in a: for v in fol[i]: la = la.min(v); ha = ha.max(v)
@@ -206,11 +214,11 @@ func _boxes_touch(fol: Array, a: Array, b: Array, tol: float) -> bool:
 func _initialize() -> void:
 	var checks := 0; var fails := 0; var islands := 0
 	var subjects: Array = []   # [name, parts]
-	for kind in Assets3D.KINDS:
+	for kind in ["fir_a", "fir_b", "broad"]:
 		for lod in 2:
 			var parts: Array = []
 			for e in Assets3D.meshes("trees/%s_lod%d" % [kind, lod]):
-				var is_wood: bool = str(e.name).begins_with("tr") or str(e.name).begins_with("bk")
+				var is_wood: bool = str(e.name).begins_with("tr") or str(e.name).begins_with("bk") or str(e.name).begins_with("bs")
 				var tr := _mesh_tris(e.mesh, e.xf, func(_si, _c): return is_wood, str(e.name).begins_with("bk"))
 				parts.append_array(tr)
 			subjects.append(["tree %s lod%d" % [kind, lod], parts])
@@ -226,6 +234,26 @@ func _initialize() -> void:
 		for p in s[1]: if not p.wood: fol_n += (p.tris as Array).size()
 		checks += 1
 		if fol_n == 0: fails += 1; print("FAIL: %s has no foliage triangles (classification broke)" % s[0])
+	# every kind and LOD carries its baked atlas, wood, stubs and cards, and the cards' UVs lie inside the atlas
+	for kind in ["fir_a", "fir_b", "broad"]:
+		for lod in 2:
+			checks += 1
+			var names := []; var uv_ok := true; var card_tris := 0
+			for e in Assets3D.meshes("trees/%s_lod%d" % [kind, lod]):
+				names.append(str(e.name))
+				if str(e.name).begins_with("cd"):
+					for si in (e.mesh as Mesh).get_surface_count():
+						var arr := (e.mesh as Mesh).surface_get_arrays(si)
+						for uv in (arr[Mesh.ARRAY_TEX_UV] as PackedVector2Array): if uv.x < -0.001 or uv.x > 1.001 or uv.y < -0.001 or uv.y > 1.001: uv_ok = false
+						card_tris += (arr[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
+			var atlas_ok := ResourceLoader.exists("res://world3d/tex/tree_%s_atlas%d.png" % [kind, lod]) or FileAccess.file_exists("res://world3d/tex/tree_%s_atlas%d.png" % [kind, lod])
+			if not (names.has("tr") and names.has("bs") and names.has("cd") and uv_ok and atlas_ok and card_tris >= 100): fails += 1; print("FAIL: tree %s lod%d: objects %s, uv inside atlas %s, atlas %s, card triangles %d" % [kind, lod, str(names), str(uv_ok), str(atlas_ok), card_tris])
+	# the far model is what the low tier draws everywhere: a triangle budget per tree
+	for kind in ["fir_a", "fir_b", "broad"]:
+		checks += 1
+		var tris := 0
+		for e in Assets3D.meshes("trees/%s_lod1" % kind): for si in (e.mesh as Mesh).get_surface_count(): tris += (e.mesh as Mesh).surface_get_arrays(si)[Mesh.ARRAY_INDEX].size() / 3
+		if tris > 1500: fails += 1; print("FAIL: tree %s lod1 has %d triangles (budget 1500)" % [kind, tris])
 	# the control: a trunk with a hovering ball and a card in the air must be caught
 	var trunk := [[Vector3(-0.05, 0, 0), Vector3(0.05, 0, 0), Vector3(0, 3, 0)], [Vector3(0, 0, -0.05), Vector3(0, 0, 0.05), Vector3(0, 3, 0)]]
 	var sm := SphereMesh.new(); sm.radius = 0.6; sm.height = 1.2; sm.radial_segments = 8; sm.rings = 4

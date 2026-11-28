@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bbst73dtrxrby"
-path.s3tc="res://.godot/imported/tree_leaf_oak.png-52a2c1eb4b675a70567d48a3eadbcd5b.s3tc.ctex"
-path.etc2="res://.godot/imported/tree_leaf_oak.png-52a2c1eb4b675a70567d48a3eadbcd5b.etc2.ctex"
+uid="uid://dspco2q8obju8"
+path.s3tc="res://.godot/imported/tree_fir_b_atlas0.png-b5532c4ec639ff3cf771927b71f82dec.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_fir_b_atlas0.png-b5532c4ec639ff3cf771927b71f82dec.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://world3d/tex/tree_leaf_oak.png"
-dest_files=["res://.godot/imported/tree_leaf_oak.png-52a2c1eb4b675a70567d48a3eadbcd5b.s3tc.ctex", "res://.godot/imported/tree_leaf_oak.png-52a2c1eb4b675a70567d48a3eadbcd5b.etc2.ctex"]
+source_file="res://world3d/tex/tree_fir_b_atlas0.png"
+dest_files=["res://.godot/imported/tree_fir_b_atlas0.png-b5532c4ec639ff3cf771927b71f82dec.s3tc.ctex", "res://.godot/imported/tree_fir_b_atlas0.png-b5532c4ec639ff3cf771927b71f82dec.etc2.ctex"]
 
 [params]
 

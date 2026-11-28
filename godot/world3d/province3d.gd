@@ -544,12 +544,12 @@ func _place_forests(xc: Array, cc: Array, xb: Array, cb: Array, tmat: Material, 
 	# trees from 1.4 km out, where one is a few pixels; the lists are split by kind first (two firs, one broadleaf)
 	var far_from := 1400.0 if kit else 0.0
 	if kit:
-		var kinds := {"fir_a": [[], []], "fir_b": [[], []], "broad": [[], []], "birch": [[], []]}
+		var kinds := {"fir_a": [[], []], "fir_b": [[], []], "broad": [[], []]}
 		for pass_i in 2:
 			var xs: Array = xc if pass_i == 0 else xb; var cs: Array = cc if pass_i == 0 else cb
 			for i in xs.size():
 				var o: Vector3 = (xs[i] as Transform3D).origin
-				var k := Assets3D.broad_kind(o)
+				var k := "broad"
 				if pass_i == 0: k = "fir_a" if (int(absf(o.x * 7.3 + o.z * 3.1)) % 3) == 0 else "fir_b"
 				(kinds[k][0] as Array).append(xs[i]); (kinds[k][1] as Array).append(cs[i])
 		for k in kinds:
@@ -824,15 +824,10 @@ func _build_layout() -> void:
 		var gmi := MultiMeshInstance3D.new(); gmi.multimesh = gm; var tm3 := Look3D.tree_mat(); gmi.material_override = tm3
 		_root_infra.add_child(gmi)
 		if ResourceLoader.exists(Assets3D.DIR + "trees/broad_lod1.glb"):   # the same garden trees as the CC0 broadleaf model near the camera; the generated blob only beyond 900 m
-			var gk := {}   # per kind: oak, birch, shrub (a shrub is a quarter of a tree's height)
-			for i in gm.instance_count:
-				var gt := gm.get_instance_transform(i); var kd := Assets3D.broad_kind(gt.origin, true)
-				if kd == "shrub": gt.basis = gt.basis.scaled(Vector3.ONE * 0.26)
-				if not gk.has(kd): gk[kd] = [[], []]
-				gk[kd][0].append(gt); gk[kd][1].append(gm.get_instance_color(i))
-			for kd in gk:
-				if quality != "low": Assets3D.forest_lod(_root_infra, kd, gk[kd][0], gk[kd][1], 0, 160.0, 0.0, 190.0, quality == "high")
-				Assets3D.forest_lod(_root_infra, kd, gk[kd][0], gk[kd][1], 1, 320.0, 150.0 if quality != "low" else 0.0, 900.0, false)
+			var gx: Array = []; var gc: Array = []
+			for i in gm.instance_count: gx.append(gm.get_instance_transform(i)); gc.append(gm.get_instance_color(i))
+			if quality != "low": Assets3D.forest_lod(_root_infra, "broad", gx, gc, 0, 160.0, 0.0, 190.0, quality == "high")
+			Assets3D.forest_lod(_root_infra, "broad", gx, gc, 1, 320.0, 150.0 if quality != "low" else 0.0, 900.0, false)
 			gmi.visibility_range_begin = 850.0; gmi.visibility_range_begin_margin = 80.0; gmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	_tp("houses")
 	if _perf_off.has("lamps"): pass
