@@ -54,7 +54,7 @@ func build() -> void:
 	pin = PanelContainer.new(); pin.name = "Pin"; pin.mouse_filter = Control.MOUSE_FILTER_STOP; pin.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 0); vb.mouse_filter = Control.MOUSE_FILTER_IGNORE; pin.add_child(vb)
 	_pin_title = GridTheme.label("", 24, GridTheme.PAPER_INK, "title"); vb.add_child(_pin_title)
-	_pin_sub = GridTheme.label("", 14, Color(GridTheme.PAPER_INK, 0.8), "sans"); vb.add_child(_pin_sub)
+	_pin_sub = GridTheme.label("", 16, Color(GridTheme.PAPER_INK, 0.8), "sans"); vb.add_child(_pin_sub)
 	_style_pin()
 	pin.gui_input.connect(func(e): if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: pin_pressed.emit(); pin.accept_event())
 	add_child(pin)
@@ -83,7 +83,7 @@ func sync_look2() -> void:
 func _style_pin() -> void:
 	pin.add_theme_stylebox_override("panel", GridTheme.chit_sb(3, 12.0))
 	_pin_title.label_settings = GridTheme.settings(20 if GridTheme.look2 else 24, GridTheme.chit_ink(), GridTheme.skin_font("title"))
-	_pin_sub.label_settings = GridTheme.settings(14, GridTheme.G_DIM if GridTheme.look2 else Color(GridTheme.PAPER_INK, 0.8), "sans")
+	_pin_sub.label_settings = GridTheme.settings(16, GridTheme.G_DIM if GridTheme.look2 else Color(GridTheme.PAPER_INK, 0.8), "sans")
 
 ## Kit tray + tags: wired to the bridge, the world and the radio. The relay node (added after the core pad) hears pad / Esc first.
 func _build_tools() -> void:
