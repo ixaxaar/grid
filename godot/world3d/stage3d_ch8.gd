@@ -733,13 +733,14 @@ static func _apply_l34(s: Stage3D, q: Dictionary, d: Dictionary) -> void:
 	var dr_mva := 0.0
 	for x in kit.get("dr", []): if str(x.id) == str(q.design.dr): dr_mva = float(x.mva)
 	var homes: Array = d.homes; var dim_n := 0
+	var dark := bool(q.get("revealed", false)) and (bool(q.get("overheat", false)) or bool(q.get("notRestored", false)))   # 1128c C08: the survivor tripped and the whole substation went dark: so does the town
 	if dr_mva > 0.0: dim_n = maxi(1, int(roundf(float(homes.size()) * dr_mva / float(q.peakMva))))
 	for i in homes.size():
 		var dimmed := i < dim_n
 		var mat: StandardMaterial3D = homes[i].mat
-		mat.emission = Color(0.50, 0.19, 0.04) if dimmed else Bench3D.WARM; mat.emission_energy_multiplier = WINDOW_E * (0.25 if dimmed else 1.0)
+		mat.emission = Color(0.50, 0.19, 0.04) if dimmed else Bench3D.WARM; mat.emission_energy_multiplier = 0.0 if dark else WINDOW_E * (0.25 if dimmed else 1.0)
 		homes[i]["dimmed"] = dimmed
-	for vg in d.town: if vg.light != null: (vg.light as OmniLight3D).light_energy = 3.0; (vg.light as OmniLight3D).light_color = Bench3D.WARM
+	for vg in d.town: if vg.light != null: (vg.light as OmniLight3D).light_energy = 0.0 if dark else 3.0; (vg.light as OmniLight3D).light_color = Bench3D.WARM
 	d["frac"] = frac; d["dim_n"] = dim_n
 
 static func _apply_l35(s: Stage3D, q: Dictionary, d: Dictionary) -> void:
