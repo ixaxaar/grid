@@ -30,7 +30,9 @@ func restyle() -> void: add_theme_stylebox_override("panel", GridTheme.ink_sb(0.
 func clock_text() -> String:
 	if app != null and app.started and app.b != null:
 		var c = app.b.q("clock")
-		if c is Dictionary and not c.is_empty(): last_clock = "%02d:%02d" % [int(c.hour), int(c.minute)]
+		var lv := str(app.b.g.get("level", ""))
+		if Instruments.STUDY_JOBS.has(lv): var sm := int(Stage8.sky_minute(lv.to_lower())); last_clock = "%02d:%02d" % [sm / 60, sm % 60]   # 1128c C04: the studies' radio reads the scene's hour, like the dial
+		elif c is Dictionary and not c.is_empty(): last_clock = "%02d:%02d" % [int(c.hour), int(c.minute)]
 	return last_clock
 
 func clear() -> void: lines.clear(); _current = ""; _rebuild()

@@ -37,14 +37,22 @@ func _init() -> void:
 	for m in [volt, dial, clear, vil]: m.codex_requested.connect(func(id): codex_requested.emit(id))
 
 ## Re-read the engine and update every meter.
+## The dial is hidden while a failed night is held. Chapter 8's studies (WO-31..36) run as one study and their places stand at a fixed time
+## of day: the dial reads the scene's hour there, not the engine's (it read 10:00 over a dusk scene, 1128c C04).
+const STUDY_JOBS := ["L31", "L32", "L33", "L34", "L35", "L36"]
+func clock_on() -> bool: return not ShiftReport.holding()
+func _study() -> bool: return app != null and app.b != null and STUDY_JOBS.has(str(app.b.g.get("level", "")))
+
 func refresh() -> void:
-	if clock != null: clock.visible = not ShiftReport.holding()
+	if clock != null: clock.visible = clock_on()
 	visible = not (ShiftReport.is_open() and get_viewport_rect().size.x < 1500.0)   # 1128c: at 1280 px the report covered the gauges; the report carries the numbers   # 1128c art review 2: the dial read 08:00 under the held night; the report states the hour
 	if app == null or not app.started: return
 	var c = app.b.q("clock")
 	if c is Dictionary and not c.is_empty():
 		var li = app.b.q("levelInfo"); var hz = li.get("horizonBlocks") if li is Dictionary and li.get("active", false) else null
-		clock.set_state(c, app.b.g.get("levelStart"), hz); clock.running = app.speed > 0
+		if _study():
+			c = c.duplicate(); c["minuteOfDay"] = Stage8.sky_minute(str(app.b.g.get("level", "")).to_lower()); hz = null
+		clock.set_state(c, app.b.g.get("levelStart"), hz); clock.running = app.speed > 0 and not _study()
 	var w = app.b.q("world"); var kind: String = str(w.get("kind", "")) if w is Dictionary else ""
 	var bs = app.b.q("benchStatus") if kind == "bench" else null
 	var show_v: bool = bs is Dictionary and bs.get("active", false)

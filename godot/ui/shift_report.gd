@@ -119,7 +119,7 @@ static func open(app: CbApp) -> bool:
 ## Apply night_hold at once (the places otherwise redraw their sky only when the clock moves).
 static func _hold_now(app: CbApp) -> void:
 	var chm = app.get("chrome")
-	if chm != null and chm.get("instruments") != null and chm.instruments.clock != null: chm.instruments.clock.visible = not holding()
+	if chm != null and chm.get("instruments") != null and chm.instruments.clock != null: chm.instruments.clock.visible = chm.instruments.clock_on()
 	if chm != null and chm.get("instruments") != null: chm.instruments.visible = app.vw() >= 1500.0
 	var wv = app.get("grid_world")
 	var l3 = wv.get("look3d") if wv != null else null
