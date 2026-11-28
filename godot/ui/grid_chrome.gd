@@ -285,6 +285,7 @@ func _home_drawer() -> void:
 
 # --- called by main.gd hooks ---------------------------------------------------------------------------------------------------------
 func toast(text: String, level: String) -> void:
+	if text.begins_with("★ Level passed") and app != null and app.b != null and str(app.b.g.get("level", "")) == "P0": return   # QA 1128c Q04: the prologue's blackout is scripted; the engine's "passed" line beside a DARK report misleads
 	radio.say("SYS", text, "warn" if level == "warn" or level == "bad" else "sys")
 
 func coach(step: Dictionary, index: int, _total: int) -> void:
