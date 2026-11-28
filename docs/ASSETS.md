@@ -84,3 +84,15 @@ Licences checked on the sites: Poly Haven https://polyhaven.com/license (all ass
 | world3d/tex/sky_night_pano.hdr | Poly Haven | Kloppenheim 02 (Pure Sky), 2k HDR | Greg Zaal (original), Jarod Guest (sky edits) | https://polyhaven.com/a/kloppenheim_02_puresky | L23 night sky (blended in world3d/shaders/sky.gdshader, turned so its moon sits at the scene's moon) | 2048x1024 |
 
 Not used: Poly Haven pine_tree_01 (905 MB source, not needed: the fir covers the conifers), street_lamp_02, modular_chainlink_fence (the generated shader fence stays; 525 modules of 3k triangles would not hold the low tier). The tree LODs also get a procedural dark core (tiered cones / ellipsoid, world3d/assets3d.gd) so the alpha cards read as a mass.
+
+## CC0 asset pass, province benchmark (WO-16, WO-17; 11-28)
+Licences checked on the pages: Kenney City Kit (Commercial) page and its License.txt state CC0; Poly Haven https://polyhaven.com/license states all assets CC0 (the HDRI's API entry lists Greg Zaal and Jarod Guest). The trees, the Suburban houses, the asphalt texture and the night panorama were added in the WO-23 pass above and are reused here (province woods, garden trees, town houses, streets, night sky).
+
+| File | Site | Asset | Author | Source URL | Licence | Resolution | Used for |
+|---|---|---|---|---|---|---|---|
+| assets/blocks/building-a.glb, building-c.glb, building-f.glb, building-h.glb | Kenney | City Kit (Commercial) building-a, -c, -f, -h | Kenney | https://kenney.nl/assets/city-kit-commercial | CC0 1.0 | 1.2k-1.7k tris each | low-rise blocks of the province towns (near LOD) | 
+| assets/blocks/building-skyscraper-a.glb, -b, -c, -e | Kenney | City Kit (Commercial) building-skyscraper-a, -b, -c, -e | Kenney | https://kenney.nl/assets/city-kit-commercial | CC0 1.0 | 1.1k-1.7k tris each | the towers of the capital's skyline (near LOD) |
+| tex/block_palette_albedo.png | Kenney | City Kit (Commercial) colormap | Kenney | https://kenney.nl/assets/city-kit-commercial | CC0 1.0 | 512x512 | trim of the blocks and towers |
+| tex/sky_day_pano.hdr | Poly Haven | Kloofendal 48d Partly Cloudy (Pure Sky), 2k HDR | Greg Zaal (original), Jarod Guest (sky edits) | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky | CC0 1.0 | 2048x1024 | the province's day sky (world3d/shaders/sky.gdshader turns its sun to the scene's sun) |
+
+The block files were re-cut in Blender with tools/blender/block.py (house.py with the Commercial palette: light-blue glass is window, green on up-facing faces is roof), scaled to about 14-18 m, metre UVs on wall and roof. The windows of the blocks are lit by 3.2 m bays of the wall grid (the glass is long strips); the houses' panes are lit one by one (UV2 pane hash, Assets3D.province_mesh).

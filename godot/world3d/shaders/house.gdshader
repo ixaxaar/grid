@@ -33,6 +33,7 @@ void fragment() {
 		rc *= 0.75 + 0.5 * h21(vec2(ic.g * 91.0, 3.0));
 		float rfar = smoothstep(500.0, 3000.0, length(VERTEX));
 		rc = mix(rc, rc * vec3(0.92, 0.78, 0.74), rfar * (1.0 - night));   // 1128c: far roofs deeper (the warm lift read as pale pink frost)   // far roofs by day: a little warmer so a town reads as red roofs, not a pale texture
+		rc = mix(rc, vec3(0.52, 0.28, 0.21) * (0.85 + 0.3 * h21(vec2(ic.g * 13.0, 5.0))), 0.8 * (1.0 - night) * smoothstep(1800.0, 5000.0, length(VERTEX)));   // by day, from the map camera a town is one warm tone, not red and slate confetti
 		float tiles = 0.85 + 0.15 * step(0.5, fract(wp.y * 3.0));
 		float dark = (1.0 - step(0.001, ic.r)) * night;   // a dark town at night: roofs lose the lamplight they would catch
 		ALBEDO = rc * tiles * (1.0 - 0.45 * dark); ROUGHNESS = 0.7; SPECULAR = mix(0.5, 0.15, smoothstep(300.0, 1500.0, length(VERTEX)));   // 1128c: far roofs mirrored the sky white   // roofs catch the moon instead of reading as holes
@@ -43,6 +44,7 @@ void fragment() {
 		float hk = h21(vec2(ic.g * 37.0, 11.0));
 		vec3 pal = hk < 0.3 ? vec3(0.66, 0.60, 0.49) : (hk < 0.5 ? vec3(0.55, 0.55, 0.53) : (hk < 0.72 ? vec3(0.46, 0.27, 0.20) : (hk < 0.88 ? vec3(0.64, 0.52, 0.33) : vec3(0.74, 0.73, 0.70))));
 		vec3 base = mix(COLOR.rgb * 0.7, pal * 0.78, 0.8);
+		base = mix(base, vec3(0.58, 0.52, 0.45), 0.7 * (1.0 - night) * smoothstep(1800.0, 5000.0, length(VERTEX)));
 		base *= 1.0 - 0.18 * step(hy, 0.6);   // a darker plinth
 		// along-wall coordinate in metres
 		float u = abs(wn.x) > abs(wn.z) ? wp.z : wp.x;

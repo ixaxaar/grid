@@ -58,6 +58,7 @@ each licence page is checked before commit; every file goes into docs/ASSETS.md 
 6. NOTES current after each family; commit and push per family. Stop to ask only if a benchmark fails 7 after two rounds.
 
 ## Status (latest first)
+- 11-28 night (Kofi, programmer): TASK A done: the L23 low-tier ~470 ms frame was the music stems' WAV encode on the main thread about 10 s after launch, not assets (it appears on L10, high tier and the classic look too; CB_NOAUDIO=1 removes it); fixed in 098c34a (encode on the worker thread). CB_HITCH=<ms> logs frames over that time. TASK B (province benchmark) in progress: Kenney kit houses and blocks (near LOD, MultiMesh chunks, engine-driven lit panes/bays), Poly Haven trees (LOD0/LOD1, generated beyond 1.4 km), day HDRI sky, asphalt streets; shots in assets-province/. Not scored by the art director.
 - 11-28 night (Ingrid, while the province helper works): Q01 fixed (Retry replays every logged setting; tests/
   retry_truth.gd 99 checks, 36a24ba). Stall: the 470 ms frame was the music WAV encode on the main thread; moved to the
   worker (098c34a); hitch log shows no frame over 100 ms after loading. Q05 not reproduced (engine 0.3 s for L28; window
