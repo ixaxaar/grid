@@ -104,12 +104,10 @@ static func build(gf, model: Dictionary, quality: String, ground: Callable) -> D
 					var ang := atan2(-along.y, along.x)
 					var idx := int(fposmod(atan2((p - c).y, (p - c).x) - rot, TAU) / TAU * count) % count
 					places.append([p.x, p.y, w, dd, h, ang + (WorldMath.hash2(hq, si, 909) - 0.5) * 0.06, id, idx, (core and hh > 0.4) or h > 19.0, dn, 0.0 if side > 0.0 else PI])   # [10]: the turn that puts a kit house's front (+Z) to the street
-			var ls := 15.0; var lq := 0
-			while ls < L - 10.0:
-				var side2 := 1.0 if lq % 2 == 0 else -1.0
-				var lp := a + along * ls + across * side2 * (w0 * 0.5 + 1.0)
-				if gf.town_dn(ti, lp) < 1.05: lamps.append([Vector3(lp.x, ground.call(lp.x, lp.y) + 7.0, lp.y), id, gf.town_dn(ti, lp)])
-				ls += 34.0; lq += 1
+			# one lamp per 22 m piece of street (the pieces are shorter than the old 34 m spacing, which placed almost none), on alternate sides
+			var side2 := 1.0 if (si + ti) % 2 == 0 else -1.0
+			var lp := a + along * (L * 0.5) + across * side2 * (w0 * 0.5 + 1.0)
+			if gf.town_dn(ti, lp) < 1.05: lamps.append([Vector3(lp.x, ground.call(lp.x, lp.y) + 7.0, lp.y), id, gf.town_dn(ti, lp)])
 	return {"places": places, "streets": streets, "lamps": lamps, "centres": centres}
 
 ## A street that wanders: steps of 22 m from p0 along dir, turning a little each step (a smooth noise of the town and street seeds),
@@ -153,12 +151,12 @@ static func _near_street(segs: Array, buck: Dictionary, skip: int, p: Vector2, r
 static func core_mesh(centres: Array, radii: Array, ground: Callable, gf: GenField = null) -> ArrayMesh:
 	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES); st.set_normal(Vector3.UP)
 	for k in centres.size():
-		var c: Vector2 = centres[k][0]; var r: float = radii[k] * 1.1; var ti: int = k
+		var c: Vector2 = centres[k][0]; var r: float = radii[k] * 1.15; var ti: int = k
 		var y: float = float(ground.call(c.x, c.y)) + 3.0
 		for s in 48:
 			var a0 := TAU * s / 48.0; var a1 := TAU * (s + 1) / 48.0
 			var r0 := r; var r1 := r
-			if gf != null: r0 = gf.town_edge(ti, a0) * 1.05; r1 = gf.town_edge(ti, a1) * 1.05   # the glow follows the town's own edge
+			if gf != null: r0 = gf.town_edge(ti, a0) * 1.12; r1 = gf.town_edge(ti, a1) * 1.12   # the glow follows the town's own edge
 			for pt: Array in [[c, 0.0], [c + Vector2(cos(a0), sin(a0)) * r0, 1.0], [c + Vector2(cos(a1), sin(a1)) * r1, 1.0]]:
 				st.set_color(Color(0, 0, 0, float(ti) / 63.0)); st.set_uv(Vector2(pt[1], 0)); st.add_vertex(Vector3(pt[0].x, y, pt[0].y))
 	return st.commit()

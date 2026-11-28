@@ -29,14 +29,15 @@ void vertex() {
 float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	if (roof > 0.5) {
-		vec3 rc = ic.g < 0.6 ? roof_a : (ic.g < 0.85 ? roof_b : vec3(0.42, 0.34, 0.26));   // mostly terracotta: slate and brown read as holes from above
-		rc *= 0.75 + 0.5 * h21(vec2(ic.g * 91.0, 3.0));
+		vec3 rc = ic.g < 0.45 ? roof_a : (ic.g < 0.68 ? vec3(0.38, 0.39, 0.43) : (ic.g < 0.86 ? vec3(0.42, 0.34, 0.26) : vec3(0.62, 0.55, 0.45)));   // mostly terracotta: slate and brown read as holes from above
+		rc *= 0.6 + 0.8 * h21(vec2(ic.g * 91.0, 3.0));
 		float rfar = smoothstep(500.0, 3000.0, length(VERTEX));
 		rc = mix(rc, rc * vec3(0.92, 0.78, 0.74), rfar * (1.0 - night));   // 1128c: far roofs deeper (the warm lift read as pale pink frost)   // far roofs by day: a little warmer so a town reads as red roofs, not a pale texture
-		rc = mix(rc, vec3(0.52, 0.28, 0.21) * (0.85 + 0.3 * h21(vec2(ic.g * 13.0, 5.0))), 0.8 * (1.0 - night) * smoothstep(1800.0, 5000.0, length(VERTEX)));   // by day, from the map camera a town is one warm tone, not red and slate confetti
+		rc = mix(rc, vec3(0.52, 0.28, 0.21) * (0.85 + 0.3 * h21(vec2(ic.g * 13.0, 5.0))), 0.3 * (1.0 - night) * smoothstep(1800.0, 5000.0, length(VERTEX)));   // by day, far roofs lean to one warm tone but keep their own light and dark
 		float tiles = 0.85 + 0.15 * step(0.5, fract(wp.y * 3.0));
 		float dark = (1.0 - step(0.001, ic.r)) * night;   // a dark town at night: roofs lose the lamplight they would catch
-		ALBEDO = rc * tiles * (1.0 - 0.45 * dark); ROUGHNESS = 0.7; SPECULAR = mix(0.5, 0.15, smoothstep(300.0, 1500.0, length(VERTEX)));   // 1128c: far roofs mirrored the sky white   // roofs catch the moon instead of reading as holes
+		ALBEDO = rc * tiles * (1.0 - 0.45 * dark);
+		ALBEDO = mix(ALBEDO, vec3(dot(ALBEDO, vec3(0.3, 0.55, 0.15))) * vec3(0.80, 0.92, 1.08), 0.85 * step(0.5, ic.b)) * (1.0 - 0.25 * step(0.5, ic.b));   // shed by the engine while the town is live: cool and grey ROUGHNESS = 0.7; SPECULAR = mix(0.5, 0.15, smoothstep(300.0, 1500.0, length(VERTEX)));   // 1128c: far roofs mirrored the sky white   // roofs catch the moon instead of reading as holes
 		EMISSION = lamp * step(0.001, ic.r) * night * 0.05 * smoothstep(350.0, 1500.0, length(VERTEX)) + rc * 0.07 * (1.0 - 0.6 * dark);   // sky fill: a slope facing away from the moon is dim, not black
 	} else {
 		// 1128c: walls in a builder's palette (cream and grey render, brick, ochre, whitewash) at photo albedo; the bright white
@@ -44,7 +45,6 @@ void fragment() {
 		float hk = h21(vec2(ic.g * 37.0, 11.0));
 		vec3 pal = hk < 0.3 ? vec3(0.66, 0.60, 0.49) : (hk < 0.5 ? vec3(0.55, 0.55, 0.53) : (hk < 0.72 ? vec3(0.46, 0.27, 0.20) : (hk < 0.88 ? vec3(0.64, 0.52, 0.33) : vec3(0.74, 0.73, 0.70))));
 		vec3 base = mix(COLOR.rgb * 0.7, pal * 0.78, 0.8);
-		base = mix(base, vec3(0.58, 0.52, 0.45), 0.7 * (1.0 - night) * smoothstep(1800.0, 5000.0, length(VERTEX)));
 		base *= 1.0 - 0.18 * step(hy, 0.6);   // a darker plinth
 		// along-wall coordinate in metres
 		float u = abs(wn.x) > abs(wn.z) ? wp.z : wp.x;
@@ -56,10 +56,11 @@ void fragment() {
 		float dark = (1.0 - step(0.001, ic.r)) * night;
 		float wfar = smoothstep(600.0, 3000.0, length(VERTEX));
 		ALBEDO = mix(base * (1.0 - 0.45 * wfar), vec3(0.05, 0.06, 0.08), win * 0.85) * (1.0 - 0.45 * dark);   // far walls a little darker so the roofs carry the town
+		ALBEDO = mix(ALBEDO, vec3(dot(ALBEDO, vec3(0.3, 0.55, 0.15))) * vec3(0.80, 0.92, 1.08), 0.85 * step(0.5, ic.b)) * (1.0 - 0.25 * step(0.5, ic.b));
 		ROUGHNESS = mix(0.85, 0.15, win); SPECULAR = mix(0.4, 0.1, smoothstep(300.0, 1500.0, length(VERTEX)));
 		float flick = 0.85 + 0.15 * h21(cell * 3.1 + ic.g);
 		float far = smoothstep(350.0, 1500.0, length(VERTEX));
-		EMISSION = lamp * lit * lamp_power * flick * (0.04 * (1.0 - far) + smoothstep(0.15, 0.8, night)) * (1.0 + 2.2 * far);   // windows carry the town from afar at night; by day they do not glow (far daytime towns read as pink dots)
-		EMISSION += lamp * step(0.001, ic.r) * night * 0.16 * far;   // a lit house reads as a warm dot from the whole province; a dark one is dark
+		EMISSION = lamp * lit * lamp_power * flick * (0.04 * (1.0 - far) + smoothstep(0.15, 0.8, night)) * (1.0 + 5.0 * far);   // windows carry the town from afar at night; by day they do not glow (far daytime towns read as pink dots)
+		EMISSION += lamp * step(0.001, ic.r) * night * 0.3 * far;   // a lit house reads as a warm dot from the whole province; a dark one is dark
 	}
 }
