@@ -221,7 +221,7 @@ static func _set_village(vg: Dictionary, e: float, col: Color) -> void:
 	for m in vg.mats: (m as StandardMaterial3D).emission = col; (m as StandardMaterial3D).emission_energy_multiplier = e
 	var lt: OmniLight3D = vg.light
 	if lt != null: lt.light_energy = e / WINDOW_E * Bench3D.HOME_LIGHT_E * 1.6; lt.light_color = col; lt.visible = e > 0.02
-	if vg.has("group"): Kit3D.set_group(str(vg.group), e > 0.02)
+	if vg.has("group"): Kit3D.set_group(str(vg.group), e > 0.02); Kit3D.set_level(str(vg.group), e / WINDOW_E)
 
 ## The lamp a customer voltage makes: [window emission, colour].
 static func _lamp(v: float, nom: float, lo: float) -> Array:
@@ -283,7 +283,7 @@ static func _head(s: Stage3D, nm: String) -> Dictionary:
 		s._inst(s._root, s._run([a, b], 0.07, 1.2), hv, "Incomer%d" % c, Vector3.ZERO, false)
 	Kit3D.flood_mast(n, Vector3(-17.5, 0.0, 13.5), Vector3(0, 0, -2.0), s.quality, 12.0)   # 1128c
 	Kit3D.flood_mast(n, Vector3(17.5, 0.0, -13.5), Vector3(0, 0, 2.0), s.quality, 12.0)
-	Kit3D.aviation(s._root, tw.position + Vector3(0, 24.6, 0))
+	Kit3D.aviation(s._root, tw.position + Vector3(0, 24.6, 0), s.quality)
 	# the feeder breaker's lead out to the first pole
 	return {"node": n, "tank": tk, "gantry": gt, "breaker": bk, "pos": n.position}
 
@@ -806,6 +806,7 @@ static func report(s: Stage3D) -> Dictionary:
 			r["wire"] = (d.sec as Array).map(func(x): return str((x.node as Node3D).get_meta("wire", "")))
 			r["wire_r"] = (d.sec as Array).map(func(x): return float((x.node as Node3D).get_meta("r", 0.0)))
 			r["win_e"] = (d.village as Array).map(func(v): return float(((v.mats as Array)[0] as StandardMaterial3D).emission_energy_multiplier))
+			r["lamp_on"] = (d.village as Array).map(func(v): return Kit3D.group_on(str(v.group)))
 			r["win_col"] = (d.village as Array).map(func(v): return ((v.mats as Array)[0] as StandardMaterial3D).emission)
 			r["houses"] = (d.village as Array).map(func(v): return (v.homes as Array).size())
 			r["tap_ptr"] = (d.can as Array).map(func(c): return float((c.ptr as Node3D).position.z))

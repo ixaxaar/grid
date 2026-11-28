@@ -354,6 +354,7 @@ func _l31(T: Truth) -> void:
 		T.check(is_amber == (v < lo), "L31: village %d is amber exactly when its peak voltage is under the band (%.1f V, floor %.1f V)" % [i + 1, v, lo])
 		if is_amber: amber_n += 1
 		if v < lo: want_amber += 1
+	for i in 5: T.check(bool(rep.lamp_on[i]) == (float(rep.win_e[i]) > 0.02), "L31: village %d's street lamps are on exactly when its windows are (%.2f)" % [i + 1, float(rep.win_e[i])])
 	T.check(amber_n == want_amber and want_amber > 0, "L31: the idle feeder has %d amber villages" % want_amber)
 	for i in 5: for j in 5: if float(q.tree[i].vPeakV) < float(q.tree[j].vPeakV): T.check(float(rep.win_e[i]) <= float(rep.win_e[j]), "L31: a lower voltage is never brighter (%d vs %d)" % [i + 1, j + 1])
 	# the pole transformers' taps
