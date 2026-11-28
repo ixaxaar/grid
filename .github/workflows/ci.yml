@@ -8,10 +8,7 @@
 # Do NOT pass the deploy key to actions/checkout's `ssh-key`: it would also be used for the game repo, which it cannot read.
 name: ci
 on:
-  push:
-    branches: [master]
-  pull_request:
-  workflow_dispatch:
+  workflow_dispatch:   # by hand only: tests run locally (make test, make flows); Actions minutes are for release builds
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
