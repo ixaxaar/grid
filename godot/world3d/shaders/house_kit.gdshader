@@ -33,7 +33,7 @@ void vertex() {
 float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 vec3 shed_tone(vec3 c, float shed) {   // shed by the engine while the town is live: in a cool shadow (darkened, blue-shifted), as if the sun did not reach it
-	return mix(c, mix(c, vec3(dot(c, vec3(0.3, 0.55, 0.15))) * vec3(0.62, 0.80, 1.20), 0.65) * 0.72, shed);
+	return mix(c, vec3(dot(c, vec3(0.3, 0.55, 0.15))) * vec3(0.97, 0.98, 1.0) * 0.6, shed * 0.8) * mix(1.0, 0.82, shed);   // r4: dark and nearly grey (about 40 % darker, desaturated), no blue cast
 }
 
 void fragment() {

@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bxsrljwk46yqg"
-path.s3tc="res://.godot/imported/tree_fir_b_atlas1.png-b5e81df462a2af16a6ae1f2198cfebab.s3tc.ctex"
-path.etc2="res://.godot/imported/tree_fir_b_atlas1.png-b5e81df462a2af16a6ae1f2198cfebab.etc2.ctex"
+uid="uid://dwt4prr7i22p0"
+path.s3tc="res://.godot/imported/tree_pine_leaf.png-962b77e33fa2249e04b9d5c32d9c6551.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_pine_leaf.png-962b77e33fa2249e04b9d5c32d9c6551.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://world3d/tex/tree_fir_b_atlas1.png"
-dest_files=["res://.godot/imported/tree_fir_b_atlas1.png-b5e81df462a2af16a6ae1f2198cfebab.s3tc.ctex", "res://.godot/imported/tree_fir_b_atlas1.png-b5e81df462a2af16a6ae1f2198cfebab.etc2.ctex"]
+source_file="res://world3d/tex/tree_pine_leaf.png"
+dest_files=["res://.godot/imported/tree_pine_leaf.png-962b77e33fa2249e04b9d5c32d9c6551.s3tc.ctex", "res://.godot/imported/tree_pine_leaf.png-962b77e33fa2249e04b9d5c32d9c6551.etc2.ctex"]
 
 [params]
 

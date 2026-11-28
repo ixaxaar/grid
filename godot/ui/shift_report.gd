@@ -20,14 +20,21 @@ static func is_open() -> bool: return not _d.is_empty() and is_instance_valid(_d
 ## Art review 2: only when the run itself passed through night (a noon PV failure keeps its sun: WO-21, WO-35).
 static var _run_dark := false
 static var _last_mn := -1.0
+## 1128c r4: a failed report in which the engine shed part of a live town also holds the night, so lit and dead read through the windows (the 3D place asks
+## with set_shed_hold when it frames the shed town).
+static var _shed_hold := false
+static func set_shed_hold(v: bool) -> void: _shed_hold = v
+static func held_minute(mn: float, open_: bool, lost: bool, run_dark: bool, shed: bool) -> float:
+	return 1350.0 if open_ and lost and (run_dark or shed) and WorldMath.night(mn) < 0.5 else mn
 static func night_hold(mn: float) -> float:
 	if not is_open():
+		_shed_hold = false
 		if mn < _last_mn - 1.0: _run_dark = false   # the clock went back: a new run (Retry, another job)
 		_last_mn = mn
 		if WorldMath.night(mn) >= 0.5: _run_dark = true
 		return mn
-	return 1350.0 if _d.get("lost", false) and _run_dark and WorldMath.night(mn) < 0.5 else mn
-static func holding() -> bool: return is_open() and _d.get("lost", false) and _run_dark
+	return held_minute(mn, true, bool(_d.get("lost", false)), _run_dark, _shed_hold)
+static func holding() -> bool: return is_open() and _d.get("lost", false) and (_run_dark or _shed_hold)
 static func host_node() -> Control: return _d.host if is_open() else null
 
 ## cfg hook: build the report and own the end state. Returns true (the kit card is skipped).

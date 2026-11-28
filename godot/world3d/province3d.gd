@@ -50,7 +50,6 @@ var _big_centre := Vector2(INF, INF)   # the largest town's centre (world x, z):
 var _town_lit := PackedFloat32Array()   # per town index: the lit share shown, eased toward the engine's over one wave
 var _wave := {}                  # town id -> {t0, sig}: when the town's energies last changed (the wave runs out from the centre)
 var _perf_off: PackedStringArray = OS.get_environment("CB_PERF_OFF").split(",")   # QA: switch a cost off to find what a frame spends (forests, houses, lamps, lines, water, shed, farterrain, 3d, glow, fsr)
-var _shed_mats := {}             # town id -> ShaderMaterial of its shed-sector shadow (shed_cast.gdshader), generated provinces only
 var _town_geo := {}              # town id -> {c: Vector2 centre (m), rot: float main-street angle, cnt: int energy sectors}
 var _subst := {}                 # town id -> {p: Vector3 yard centre, dir: Vector2 unit vector from the town towards the incoming transmission line}
 var _warn: Array = []            # red warning lights on the yard gantries: blink at night
@@ -640,7 +639,7 @@ func _build_layout() -> void:
 	for c in _root_infra.get_children(): c.queue_free()
 	_house_mm.clear(); _house_map.clear(); _town_lamps.clear(); _yard_lights.clear(); _battery = {}; _lighthouse = {}; _unit_lights.clear()
 	_town_inst.clear(); _town_lampmm.clear(); _wave.clear(); _warn.clear(); _night_lights.clear(); _lamp_mats.clear()
-	_shed_mats.clear(); _town_geo.clear(); _subst.clear()
+	_town_geo.clear(); _subst.clear()
 	var hmat := ShaderMaterial.new(); hmat.shader = load("res://world3d/shaders/house.gdshader"); _hmat = hmat
 	hmat.set_shader_parameter("roof_far", PackedVector3Array(Assets3D.ROOF_TINTS_FAR))
 	var house := Props3D.house(); var block := Props3D.block()
@@ -663,6 +662,9 @@ func _build_layout() -> void:
 				var bp: Vector2 = (cc[0] as Vector2) + Vector2(cos(a), sin(a)) * rr
 				var hh := 17.0 + 24.0 * _h(k, cnt, 642)
 				places.append([bp.x, bp.y, 16.0 + 6.0 * _h(k, cnt, 643), 14.0 + 5.0 * _h(k, cnt, 644), hh, a + PI * 0.5, tid, int(fposmod(a - float(cc[2]), TAU) / TAU * cnt) % cnt, true, 0.1 + 0.2 * _h(k, cnt, 645)])
+		var ncount := {}
+		for t in model.towns: ncount[str(t.id)] = maxi(1, int(t.get("count", 1)))
+		for cc in tg.centres: _town_geo[str(cc[1])] = {"c": cc[0], "rot": float(cc[2]), "cnt": mini(int(ncount.get(str(cc[1]), 1)), 64)}   # each town's centre, main-street angle and energy sectors
 		_gen_substations(tg.centres)
 		var pads: Array = []   # 1128c (audit: houses stood inside the WO-22 plant yard): [centre, radius]
 		for u in model.get("units", []):
@@ -683,7 +685,6 @@ func _build_layout() -> void:
 		var cm := MeshInstance3D.new(); cm.name = "TownCores"; cm.mesh = TownGen.core_mesh(tg.centres, radii, ground, field as GenField)   # the warm lit core seen from play height
 		_core_mat = ShaderMaterial.new(); _core_mat.shader = load("res://world3d/shaders/town_core.gdshader"); cm.material_override = _core_mat
 		cm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_infra.add_child(cm)
-		if not _perf_off.has("shed"): _build_shed_cast(tg.centres)
 		_town_lit = PackedFloat32Array(); _town_lit.resize(64)
 		for k in places.size(): if _h(k, 1, 615) > 0.8: garden.append(Vector3(places[k][0], 0, places[k][1]) + Vector3(6, 0, 6).rotated(Vector3.UP, places[k][5]))
 		var counts := {}
@@ -1132,47 +1133,6 @@ func _soft_dot() -> Texture2D:
 	var t := GradientTexture2D.new(); t.gradient = g; t.fill = GradientTexture2D.FILL_RADIAL; t.fill_from = Vector2(0.5, 0.5); t.fill_to = Vector2(1.0, 0.5); t.width = 64; t.height = 64
 	_dot = t; return t
 
-## The shadow of the shed sectors of each generated town (shed_cast.gdshader): a fan of wedges, wedge k = the engine's energy index k (the formula
-## TownGen gives the houses), over the ground and roofs. Presentation only: the engine's energies decide which wedges are shed (_set_shed).
-func _build_shed_cast(centres: Array) -> void:
-	var gf := field as GenField
-	var counts := {}
-	for t in model.towns: counts[str(t.id)] = maxi(1, int(t.get("count", 1)))
-	var sub := 2 if quality == "low" else 3
-	var rings := 4 if quality == "low" else 6
-	for ti in centres.size():
-		var id := str(centres[ti][1]); var c: Vector2 = centres[ti][0]; var rot: float = centres[ti][2]; var cnt: int = mini(int(counts.get(id, 1)), 64)
-		if float(gf.towns[ti].r) <= 0.0: continue
-		_town_geo[id] = {"c": c, "rot": rot, "cnt": cnt}
-		var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES); st.set_normal(Vector3.UP)
-		for k in cnt:
-			st.set_color(Color(float(k) / 63.0, 0, 0, 1))
-			for sb in sub:
-				var a0 := rot + TAU * (float(k) + float(sb) / sub) / float(cnt); var a1 := rot + TAU * (float(k) + float(sb + 1) / sub) / float(cnt)
-				var e0 := gf.town_edge(ti, a0) * 1.25; var e1 := gf.town_edge(ti, a1) * 1.25
-				for ri in rings:
-					var r0 := float(ri) / rings; var r1 := float(ri + 1) / rings
-					var q := [[a0, e0, r0], [a0, e0, r1], [a1, e1, r1], [a1, e1, r0]]
-					for ix in [0, 1, 2, 0, 2, 3]:
-						var pt: Array = q[ix]; var pp := c + Vector2(cos(float(pt[0])), sin(float(pt[0]))) * float(pt[1]) * float(pt[2])
-						st.set_uv(Vector2(float(pt[2]), 0)); st.add_vertex(Vector3(pp.x, ground(pp.x, pp.y) + 0.9, pp.y))
-		var mi := MeshInstance3D.new(); mi.name = "ShedCast_%s" % id; mi.mesh = st.commit()
-		var m := ShaderMaterial.new(); m.shader = load("res://world3d/shaders/shed_cast.gdshader"); m.render_priority = 2
-		var zero := PackedFloat32Array(); zero.resize(64); m.set_shader_parameter("sector_shed", zero); m.set_shader_parameter("front", 2.0)
-		mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; mi.extra_cull_margin = 200.0
-		_root_infra.add_child(mi); _shed_mats[id] = m
-
-## Which wedges of a town are shed: 1 where the engine's town is live and the building energy of that sector is 0 (the same test that marks the houses).
-static func shed_sectors(tw: Dictionary) -> PackedFloat32Array:
-	var out := PackedFloat32Array(); out.resize(64)
-	var live := float(tw.get("v", 0.0)) > 0.0
-	var en: Array = Array(tw.get("energies", []))
-	for k in mini(en.size(), 64): out[k] = 1.0 if live and float(en[k]) <= 0.0 else 0.0
-	return out
-
-func _set_shed(id: String, tw: Dictionary) -> void:
-	if _shed_mats.has(id): (_shed_mats[id] as ShaderMaterial).set_shader_parameter("sector_shed", shed_sectors(tw))
-
 ## The city substation of a job: where a transmission line ends at a town, the yard stands just inside the last tower (the line's ring is 140 m), drawn
 ## CITY_YARD_SCALE times larger than a plain yard so it reads from play height. Only the jobs of chapters 5 and 6 (JOB_SUBJECT) get one.
 const CITY_YARD_SCALE := 3.5
@@ -1327,7 +1287,7 @@ func _build_plant(u: Dictionary) -> void:
 	for cx in [-128.0, 168.0]:   # 1128c: yard floodlights at the pad corners (the plant stood unlit at night)
 		for cz in [-102.0, 102.0]:
 			Kit3D.flood_mast(n, Vector3(cx, 0.6, cz), Vector3(20.0, 0.0, 0.0), quality, 28.0, "plant")
-			_night_lights.append(_beacon(n, Vector3(cx, 29.0, cz), Color(1.0, 0.8, 0.5), 2.0, 0.0045))   # the mast head as a lamp from the map camera
+			_night_lights.append(_beacon(n, Vector3(cx, 29.0, cz), Color(1.0, 0.8, 0.5), 3.2, 0.009))   # the mast head as a lamp from the map camera
 	var hall_l := 110.0 if big else 70.0
 	var hall := MeshInstance3D.new(); var hm := BoxMesh.new(); hm.size = Vector3(hall_l, 26, 34); hall.mesh = hm; hall.material_override = clad; hall.position = Vector3(0, 13, 0); n.add_child(hall)
 	var lit := StandardMaterial3D.new(); lit.albedo_color = Color(0.2, 0.17, 0.12); lit.emission_enabled = true; lit.emission = Color(1.0, 0.8, 0.5); lit.emission_energy_multiplier = 2.2
@@ -1370,7 +1330,7 @@ func _build_plant(u: Dictionary) -> void:
 			st.position = Vector3(hall_l * 0.5 + 30.0, 31, -18.0 + 36.0 * k); n.add_child(st)
 			if quality != "low": win.add_child(_smoke(Vector3(hall_l * 0.5 + 30.0, 63.0, -18.0 + 36.0 * k)))
 			_warn.append(_beacon(n, Vector3(hall_l * 0.5 + 30.0, 64.5, -18.0 + 36.0 * k), Color(1.0, 0.1, 0.06), 2.2, 0.006))
-	_unit_lights.append([str(u.id), win])
+	_unit_lights.append([str(u.id), win, lit])
 
 static var _ct_mesh: ArrayMesh
 ## A hyperbolic cooling tower, 115 m tall, as a lathe: r(y) = r_throat * sqrt(1 + ((y - y_throat) / c)^2).
@@ -1473,7 +1433,7 @@ func _build_lines() -> void:
 			var A: Array = sup_att[int(sp.a)]; var B: Array = sup_att[int(sp.b)]
 			Props3D.add_wire(stg, A[min(1, A.size() - 1)], B[min(1, B.size() - 1)], float(sp.sag_m), 0.14, acc)
 			acc += (A[0] as Vector3).distance_to(B[0])
-		var gi := MeshInstance3D.new(); gi.mesh = stg.commit(); gi.material_override = _glow_mat(Color(0.4, 0.85, 1.0, 1.0), 1.0, 0.6)
+		var gi := MeshInstance3D.new(); gi.mesh = stg.commit(); gi.material_override = _glow_mat(Color(0.4, 0.85, 1.0, 1.0), 1.0, 0.6); (gi.material_override as ShaderMaterial).set_shader_parameter("pulse_depth", 0.2)
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_dyn.add_child(gi)
 		_wire_glow[str(r.id)] = gi
 	for l in model.lines:
@@ -1550,7 +1510,7 @@ func _build_tower_line(l: Dictionary, wire_mat: Material, meshes: Dictionary) ->
 	var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = tmat; _root_dyn.add_child(mi)
 	var cmat := ShaderMaterial.new(); cmat.shader = load("res://world3d/shaders/tower.gdshader"); cmat.set_shader_parameter("inflate", 0.00028); cmat.set_shader_parameter("metal", 0.5); cmat.set_shader_parameter("rough", 0.55); cmat.set_shader_parameter("tint", Vector3(0.42, 0.43, 0.45))   # 1128c: dark threads, not chalk lines (a polished metal tube mirrored the bright sky)
 	var wi := MeshInstance3D.new(); wi.mesh = st.commit(); wi.material_override = cmat; wi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_dyn.add_child(wi)
-	var gm := _glow_mat(Color(0.4, 0.85, 1.0, 1.0), 1.0, 0.6); gm.set_shader_parameter("inflate", 0.00045)
+	var gm := _glow_mat(Color(0.4, 0.85, 1.0, 1.0), 1.0, 0.6); gm.set_shader_parameter("inflate", 0.00045); gm.set_shader_parameter("pulse_depth", 0.2)   # r4: a continuous conductor, not beaded lights
 	var gi := MeshInstance3D.new(); gi.mesh = sg.commit(); gi.material_override = gm
 	gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; _root_dyn.add_child(gi)
 	_wire_glow[str(l.id)] = gi
@@ -1591,24 +1551,40 @@ func _build_sea_cable(l: Dictionary) -> void:
 # --------------------------------------------------------------------------------------------------------------------
 # Every model refresh: windows, lamps, yards, conductor glow, battery, lighthouse, trawler, sky
 # --------------------------------------------------------------------------------------------------------------------
-func _update_dynamic() -> void:
-	var mn := ShiftReport.night_hold(float(model.get("minute", 720.0)))   # 1128c: a failed report holds the night (windows and lamps too)
-	if OS.is_debug_build() and OS.has_environment("CB_SKY_MIN"): mn = float(OS.get_environment("CB_SKY_MIN"))   # audit shots: a fixed clock for the sky, windows and lamps (the engine's own numbers are not touched)
+var _pv_prev := false
+var _ease_clock := false
+var _shown_min := -1.0
+var _target_min := 0.0
+
+## The sky and every night-driven material for the scene's minute.
+func _apply_clock(mn: float) -> void:
 	var n := WorldMath.night(mn)
 	_update_sky(mn)
-	var by_id := {}
-	for t in model.towns: by_id[str(t.id)] = t
 	if _hmat != null: _hmat.set_shader_parameter("night", n)
 	for km in _kit_mats: (km as ShaderMaterial).set_shader_parameter("night", n)
 	for km in _kit_block_mats: (km as ShaderMaterial).set_shader_parameter("night", n)
 	for lm in _lamp_mats: (lm as ShaderMaterial).set_shader_parameter("night", n)
-	for sm in _shed_mats.values(): (sm as ShaderMaterial).set_shader_parameter("night", n)
+
+func _update_dynamic() -> void:
+	var mn := ShiftReport.night_hold(float(model.get("minute", 720.0)))   # 1128c: a failed report holds the night (windows and lamps too)
+	if OS.is_debug_build() and OS.has_environment("CB_SKY_MIN"): mn = float(OS.get_environment("CB_SKY_MIN"))   # audit shots: a fixed clock for the sky, windows and lamps (the engine's own numbers are not touched)
+	# 1128c C18: while a job previews its peak hour (WorldModel.PREVIEW_MINUTE) the first block eases the scene to the engine's hour over about a second,
+	# so the sky, the dial and the radio agree again (the radio re-stamps its preview lines, RadioLog.end_preview)
+	var pv_now := bool(model.get("preview", false))
+	if _pv_prev and not pv_now and not OS.has_environment("CB_SKY_MIN"): _ease_clock = true
+	_pv_prev = pv_now
+	_target_min = mn
+	if _ease_clock: mn = _shown_min
+	else: _shown_min = mn
+	var n := WorldMath.night(mn)
+	_apply_clock(mn)
+	var by_id := {}
+	for t in model.towns: by_id[str(t.id)] = t
 	for id in _town_inst:   # a change in a town's energies starts a wave from its centre (the first model applies at once)
 		var tw: Dictionary = by_id.get(id, {})
 		var sig := str(tw.get("energies", [])) + str(tw.get("v", 0.0) > 0.0)
 		if not _wave.has(id): _wave[id] = {"t0": -100.0, "sig": sig, "done": false}
 		elif str(_wave[id].sig) != sig: _wave[id] = {"t0": _t, "sig": sig, "done": false}
-		_set_shed(id, tw)
 	for id in _town_lamps:
 		var tw: Dictionary = by_id.get(id, {})
 		var on := not tw.is_empty() and float(tw.v) > 0.0 and n > 0.25
@@ -1628,7 +1604,8 @@ func _update_dynamic() -> void:
 	for ul in _unit_lights:
 		var on := false
 		for u in model.units: if str(u.id) == ul[0]: on = bool(u.online)
-		(ul[1] as Node3D).visible = on and n > 0.15
+		(ul[1] as Node3D).visible = n > 0.15 and (on or (ul as Array).size() > 2)   # r4: an idle plant keeps its site lights on at night, dimmer (it anchors the evening view)
+		if (ul as Array).size() > 2: (ul[2] as StandardMaterial3D).emission_energy_multiplier = 2.2 if on else 0.9
 	for id in _wire_glow:
 		var l := _line_by_id(id)
 		var gi: MeshInstance3D = _wire_glow[id]
@@ -1714,7 +1691,6 @@ func _run_waves() -> void:
 		var w: Dictionary = _wave[id]
 		if bool(w.done): continue
 		var front := (_t - float(w.t0)) / WAVE_S
-		if _shed_mats.has(id): (_shed_mats[id] as ShaderMaterial).set_shader_parameter("front", front if front <= 1.2 else 2.0)
 		var tw: Dictionary = by_id.get(id, {})
 		var en: PackedFloat32Array = tw.get("energies", PackedFloat32Array())
 		var live := not tw.is_empty() and float(tw.get("v", 0.0)) > 0.0
@@ -1756,6 +1732,10 @@ func _process(dt: float) -> void:
 	var k := 1.0 - exp(-dt * 9.0)
 	target = target.lerp(_g_target, k); yaw = lerp_angle(yaw, _g_yaw, k); pitch = lerpf(pitch, _g_pitch, k); dist = lerpf(dist, _g_dist, k)
 	_apply_camera()
+	if _ease_clock:
+		_shown_min = move_toward(_shown_min, _target_min, 560.0 * dt)
+		_apply_clock(_shown_min)
+		if is_equal_approx(_shown_min, _target_min): _ease_clock = false
 	_run_waves()
 	_ease_town_glow(dt)
 	if not (_warn.is_empty() and _warn_l.is_empty()):
@@ -1780,6 +1760,11 @@ func _process(dt: float) -> void:
 # --------------------------------------------------------------------------------------------------------------------
 ## The shift report asks the place to frame its consequence: when the engine has shed part of a live town, look along the line between the served
 ## and the shed wedges (the shed half in its cool shadow on one side, the served half in sun on the other), the city substation nearest the camera.
+## A window narrower than 16:9 shows less width at the same distance: back off in proportion, so the same things stay in frame (the vertical field of view is fixed).
+func _aspect_k() -> float:
+	var vs := get_viewport().get_visible_rect().size
+	return clampf(1.78 / maxf(0.5, vs.x / maxf(1.0, vs.y)), 1.0, 1.6)
+
 func report_focus() -> bool:
 	var best := ""; var most := 0
 	for t in model.get("towns", []):
@@ -1796,8 +1781,14 @@ func report_focus() -> bool:
 			var sp: Vector3 = _subst[best].p
 			if (Vector2(sp.x, sp.z) - c).dot(f) > 0.0: f = -f   # the substation on the camera's side of the boundary
 			at = c.lerp(Vector2(sp.x, sp.z), 0.3)
+		_g_yaw = atan2(-f.x, -f.y); _g_pitch = deg_to_rad(21.0); _g_dist = minf(_g_dist, 820.0 * _aspect_k())
+		if _subst.has(best):   # the substation on the left third of the view, the boundary running away from it into the city
+			var spp: Vector3 = _subst[best].p
+			var rt := Vector2(cos(_g_yaw), -sin(_g_yaw))
+			var lat := (Vector2(spp.x, spp.z) - at).dot(rt)
+			at += rt * (lat + 0.2 * 2.0 * _g_dist * tan(deg_to_rad(34.8)))
 		_g_target = Vector3(at.x, ground(at.x, at.y), at.y)
-		_g_yaw = atan2(-f.x, -f.y); _g_pitch = deg_to_rad(21.0); _g_dist = minf(_g_dist, 820.0)
+		ShiftReport.set_shed_hold(true)   # r4: the failed report holds the night, so lit and dead read through the windows
 		return true
 	if _big_centre.x >= INF: return false
 	_g_target = Vector3(_big_centre.x, ground(_big_centre.x, _big_centre.y), _big_centre.y)
@@ -1827,7 +1818,7 @@ func _focus_overload() -> bool:
 	var f := Vector2(-along.y, along.x)   # across the line: it runs left to right
 	if f.y > 0.0: f = -f   # looking north
 	_g_target = Vector3(c.x, maxf(ground(c.x, c.y), 0.0), c.y)
-	_g_yaw = atan2(-f.x, -f.y); _g_pitch = deg_to_rad(27.0); _g_dist = maxf((hi - lo).length() * 1.9, 1700.0)
+	_g_yaw = atan2(-f.x, -f.y); _g_pitch = deg_to_rad(27.0); _g_dist = maxf((hi - lo).length() * 2.4, 2000.0)
 	return true
 
 func reset_camera() -> void:
@@ -1868,7 +1859,9 @@ func reset_camera() -> void:
 		var f := Vector2(-sc.y, sc.x).normalized()   # across the line from the substation to the core: the substation on the left, the core on the right
 		if Vector2(sp.x, sp.z).distance_to(c) > 0.0 and (Vector2(sp.x, sp.z) - c).dot(Vector2(cos(atan2(-f.x, -f.y)), -sin(atan2(-f.x, -f.y)))) > 0.0: f = -f
 		var at := Vector2(sp.x, sp.z).lerp(c, 0.22)
-		_g_target = Vector3(at.x, maxf(ground(at.x, at.y), 0.0), at.y); _g_yaw = atan2(-f.x, -f.y); _g_pitch = deg_to_rad(16.0); _g_dist = 560.0
+		var yw := atan2(-f.x, -f.y)
+		at -= Vector2(cos(yw), -sin(yw)) * 31.0   # r4: the spire clears the dial and the chimney keeps off the panel, at any window size (the vertical field of view is fixed)
+		_g_target = Vector3(at.x, maxf(ground(at.x, at.y), 0.0), at.y); _g_yaw = yw; _g_pitch = deg_to_rad(16.0); _g_dist = 560.0 * _aspect_k()
 	if str(model.get("level", "")) == "P0":   # 1.19 (Sigrid): the prologue opens low behind the lit coal plant, looking east over Line 7 to the city's glow
 		var plant := Vector2(INF, INF); var city := Vector2(INF, INF)
 		for u in model.get("units", []):

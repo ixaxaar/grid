@@ -236,6 +236,7 @@ func toggle_charts() -> void:
 func refresh() -> void:
 	if app == null or not app.started or instruments == null: return
 	sync_look2()
+	if radio != null: radio.end_preview()
 	var li = app.b.q("levelInfo"); var act: bool = li is Dictionary and li.get("active", false)
 	var id: String = str(li.id) if act else ""
 	if id != _level:

@@ -44,7 +44,7 @@ func _initialize() -> void:
 	var p := Province3D.new(); root.add_child(p)
 	await process_frame   # _ready (the environment) runs on the next frame
 	p.set_model(m)
-	T.check(p._shed_mats.has("B3") and p._town_geo.has("B3"), "the city has a shed-shadow fan and its geometry")
+	T.check(p._town_geo.has("B3") and int(p._town_geo.B3.cnt) == city.energies.size(), "the city has its centre, main-street angle and %d energy sectors" % city.energies.size())
 	T.check(p._subst.has("B3"), "the city bus has a substation yard where the transmission line ends")
 	p._t = 100.0; p._run_waves()
 	var want_shed := 0; var seen := 0
@@ -56,14 +56,12 @@ func _initialize() -> void:
 	T.check(seen > 100 and want_shed > 0 and want_shed < seen, "the city has served and shed houses to check (%d of %d shed)" % [want_shed, seen])
 	T.check(int(w.get("written", 0)) == seen, "the wave wrote every house of the city (%d of %d)" % [int(w.get("written", 0)), seen])
 	T.check(int(w.get("shed_n", 0)) == want_shed, "exactly the houses of the shed sectors carry the shed flag (%d marked, %d in zero-energy sectors)" % [int(w.get("shed_n", 0)), want_shed])
-	var fan := Province3D.shed_sectors(city)
-	var fan_bad := 0
-	for k in en.size(): if (fan[k] > 0.5) != (float(en[k]) <= 0.0): fan_bad += 1
-	T.check(fan_bad == 0, "the shadow fan marks exactly the shed sectors (%d off)" % fan_bad)
-	var healthy := Province3D.shed_sectors({"v": 0.0, "energies": en})   # a dead bus is a blackout, not a shed sector
-	var hsum := 0.0
-	for hv in healthy: hsum += hv
-	T.check(hsum == 0.0, "a dead town has no shed sectors (it is dark, not shed)")
+	# the failed WO-17 report holds the night when part of a live city is shed (r4), as every other failed report holds it after a night run
+	T.check(ShiftReport.held_minute(720.0, true, true, false, true) == 1350.0, "a failed report with a shed city holds the night over a noon run")
+	T.check(ShiftReport.held_minute(720.0, true, true, false, false) == 720.0, "a failed report without a night run or a shed keeps its hour")
+	T.check(ShiftReport.held_minute(720.0, true, false, false, true) == 720.0, "a passed report never holds the night")
+	T.check(ShiftReport.held_minute(720.0, false, true, true, true) == 720.0, "no report open: no hold")
+	T.check(ShiftReport.held_minute(1400.0, true, true, false, true) == 1400.0, "the night itself is left alone")
 	T.check(p.report_focus(), "the report frames the shed city")
 	p.queue_free()
 	# 3. WO-16: the evening-peak preview changes the scene's minute only

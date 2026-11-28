@@ -44,11 +44,31 @@ func clear() -> void: lines.clear(); _current = ""; _rebuild()
 func say(speaker: String, text: String, kind := "sys", step := "", why := "") -> void:
 	if text == "": return
 	if not lines.is_empty() and lines.back().text == text and lines.back().speaker == speaker: return   # an identical repeat adds nothing
-	lines.append({"time": clock_text(), "speaker": speaker, "text": text, "kind": kind, "step": step, "why": why})
+	lines.append({"time": clock_text(), "speaker": speaker, "text": text, "kind": kind, "step": step, "why": why, "pv": previewing()})
 	if kind == "coach" and step != "": _current = step
 	while lines.size() > 200: lines.pop_front()
 	visible = true; _rebuild()
 	if app != null: app.sfx("radio")   # the little radio blip for every new line
+
+## True while the job shows its preview hour (WorldModel.PREVIEW_MINUTE): lines said now carry that hour.
+func previewing() -> bool:
+	if app == null or not app.started or app.b == null: return false
+	var c = app.b.q("clock")
+	return c is Dictionary and not c.is_empty() and WorldModel.preview_minute(str(app.b.g.get("level", "")), int(c.get("tick", 1 << 30)), app.b.g.get("levelStart")) >= 0.0
+
+## The first block ends the preview: the lines said under it take the engine's hour, so the log never runs backwards (1128c C18).
+func end_preview() -> void:
+	var any := false
+	for l in lines:
+		if l.get("pv", false): any = true
+	if not any or previewing(): return
+	var c = app.b.q("clock")
+	var t := "%02d:%02d" % [int(c.hour), int(c.minute)]
+	var start = app.b.g.get("levelStart")
+	if start != null: t = "%02d:%02d" % [(int(start) * 15 / 60) % 24, (int(start) * 15) % 60]
+	for l in lines:
+		if l.get("pv", false): l["time"] = t; l.erase("pv")
+	_rebuild()
 
 func set_current(step_id: String) -> void: _current = step_id; _rebuild()
 

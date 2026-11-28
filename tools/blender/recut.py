@@ -13,7 +13,9 @@ from PIL import Image
 a = sys.argv[sys.argv.index("--") + 1:]
 src, objsub, folsub, outp, kind = a[:5]
 K0, K1, T0, T1, TR_T, BK_T = [int(x) for x in a[5:11]]
-DIL = float(a[11]) if len(a) > 11 else 0.0
+DIL0 = float(a[11]) if len(a) > 11 else 0.0
+DIL1 = float(a[12]) if len(a) > 12 else DIL0
+DIL = DIL0
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
@@ -225,6 +227,7 @@ def stub_obj(stubs):
     return o
 
 for lod, (K, T) in enumerate(((K0, T0), (K1, T1))):
+    DIL = DIL0 if lod == 0 else DIL1   # the far cards are filled blobs: they stand for a whole cluster of leaves, with no hull behind them
     for o in list(bpy.data.objects):
         if o.name in ("tr", "bk", "cd", "bs"): bpy.data.objects.remove(o)
     tr, bk = make_wood(TR_T, BK_T) if lod == 0 else make_wood(250, 0)

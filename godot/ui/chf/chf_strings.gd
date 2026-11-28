@@ -4,7 +4,8 @@ extends RefCounted
 const S := {
 	"GT_SUB_setTapAuto": "Hold 1.02", "GT_TIP_setTapAuto": "Tap changer holds 1.02 pu: pick this cell, then click an Eastgate 220/132 kV ICT (T34 or T35, the pair that feeds Eastgate and Harbour).",
 	"GT_PART_ict-400-220-315": "ICT", "GT_SUB_ict-400-220-315": "400/220", "GT_PART_ict-220-132-160": "ICT", "GT_SUB_ict-220-132-160": "220/132",
-	"GT_PART_cap-400-50": "Cap bank", "GT_SUB_cap-400-50": "50 MVAr", "GT_PART_cap-220-50": "Cap bank", "GT_SUB_cap-220-50": "50 MVAr 220", "GT_PART_reactor-400-125": "Reactor", "GT_SUB_reactor-400-125": "125 MVAr",
+	"GT_PART_cap-400-50": "Cap 400", "GT_SUB_cap-400-50": "50 MVAr", "GT_PART_cap-220-50": "Cap 220", "GT_SUB_cap-220-50": "50 MVAr",   # 1128c r4: the kV in the name, not squeezed into the size line (it ran into the next tile at 1920)
+	 "GT_PART_reactor-400-125": "Reactor", "GT_SUB_reactor-400-125": "125 MVAr",
 	"GT_PART_statcom-200": "STATCOM", "GT_SUB_statcom-200": "200 MVAr", "GT_PART_bess-2h-50": "Battery 2h", "GT_SUB_bess-2h-50": "50 MW", "GT_PART_bess-4h-50": "Battery 4h", "GT_SUB_bess-4h-50": "50 MW", "GT_PART_bess-gfm-50": "GFM", "GT_SUB_bess-gfm-50": "50 MW",
 	"CF_WO_ISLAND": "%s never goes dark, not even on the night of Day 2", "CF_WO_BAND": "Every bus stays within %s to %s pu (out of band for more than %d minutes loses)",
 	"CF_WO_ENS": "Energy not served at most 0.1 %% of the energy the province uses (%d of %d MWh)", "CF_WO_BLACKOUT": "No total blackout",

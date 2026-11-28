@@ -218,8 +218,10 @@ func _initialize() -> void:
 		for lod in 2:
 			var parts: Array = []
 			for e in Assets3D.meshes("trees/%s_lod%d" % [kind, lod]):
-				var is_wood: bool = str(e.name).begins_with("tr") or str(e.name).begins_with("bk") or str(e.name).begins_with("bs")
-				var tr := _mesh_tris(e.mesh, e.xf, func(_si, _c): return is_wood, str(e.name).begins_with("bk"))
+				var nm := str(e.name)
+				var obj_wood: bool = nm.begins_with("tr") or nm.begins_with("bk") or nm.begins_with("bs")
+				var em: Mesh = e.mesh
+				var tr := _mesh_tris(em, e.xf, func(si, _c): return obj_wood or Assets3D.mat_name(em, si).begins_with("Bark"), nm.begins_with("bk"))   # recut trees: objects tr/bk/bs; the Quaternius pines: material Bark_*
 				parts.append_array(tr)
 			subjects.append(["tree %s lod%d" % [kind, lod], parts])
 	var by_colour := func(_si, c: Color) -> bool: return not _is_green(c)
@@ -238,16 +240,19 @@ func _initialize() -> void:
 	for kind in ["fir_a", "fir_b", "broad"]:
 		for lod in 2:
 			checks += 1
-			var names := []; var uv_ok := true; var card_tris := 0
+			var names := []; var uv_ok := true; var card_tris := 0; var mats_ok := true
 			for e in Assets3D.meshes("trees/%s_lod%d" % [kind, lod]):
 				names.append(str(e.name))
-				if str(e.name).begins_with("cd"):
-					for si in (e.mesh as Mesh).get_surface_count():
-						var arr := (e.mesh as Mesh).surface_get_arrays(si)
+				for si in (e.mesh as Mesh).get_surface_count():
+					var arr := (e.mesh as Mesh).surface_get_arrays(si)
+					var mn := Assets3D.mat_name(e.mesh, si)
+					if kind.begins_with("fir"): mats_ok = mats_ok and (mn == "Bark_NormalTree" or mn == "Leaves_Pine")
+					if str(e.name).begins_with("cd") or mn == "Leaves_Pine":
 						for uv in (arr[Mesh.ARRAY_TEX_UV] as PackedVector2Array): if uv.x < -0.001 or uv.x > 1.001 or uv.y < -0.001 or uv.y > 1.001: uv_ok = false
 						card_tris += (arr[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
-			var atlas_ok := ResourceLoader.exists("res://world3d/tex/tree_%s_atlas%d.png" % [kind, lod]) or FileAccess.file_exists("res://world3d/tex/tree_%s_atlas%d.png" % [kind, lod])
-			if not (names.has("tr") and names.has("bs") and names.has("cd") and uv_ok and atlas_ok and card_tris >= 100): fails += 1; print("FAIL: tree %s lod%d: objects %s, uv inside atlas %s, atlas %s, card triangles %d" % [kind, lod, str(names), str(uv_ok), str(atlas_ok), card_tris])
+			var tex_ok := FileAccess.file_exists("res://world3d/tex/tree_pine_leaf.png") if kind.begins_with("fir") else FileAccess.file_exists("res://world3d/tex/tree_%s_atlas%d.png" % [kind, lod])
+			var structure_ok: bool = (mats_ok and card_tris >= 100) if kind.begins_with("fir") else (names.has("tr") and names.has("bs") and names.has("cd") and card_tris >= 100)
+			if not (structure_ok and uv_ok and tex_ok): fails += 1; print("FAIL: tree %s lod%d: objects %s, materials ok %s, uv inside the atlas %s, texture %s, card triangles %d" % [kind, lod, str(names), str(mats_ok), str(uv_ok), str(tex_ok), card_tris])
 	# the far model is what the low tier draws everywhere: a triangle budget per tree
 	for kind in ["fir_a", "fir_b", "broad"]:
 		checks += 1

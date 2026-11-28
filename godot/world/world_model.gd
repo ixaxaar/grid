@@ -42,7 +42,7 @@ static func build(b) -> Dictionary:
 	elif wt is Dictionary: _known_terrain = str(wt.id)
 	m.kind = str(w.kind); m.level = str(w.get("level", "")); m.blackout = bool(w.get("blackout", false))
 	var pv := -1.0 if qa_min != "" else preview_minute(str(m.level), int(clk.tick) if clk is Dictionary and not clk.is_empty() else 1 << 30, b.g.get("levelStart"))
-	if pv >= 0.0: m.minute = pv; m.night = WorldMath.night(pv); m["preview"] = true
+	if pv >= 0.0: m.minute = pv; m.night = WorldMath.night(pv); m["preview"] = true; m["preview_minute"] = pv
 	m["solved"] = bool(w.get("solved", true))   # before the first solve nothing is "dark" yet: the grid has not been worked out
 	if w.kind == "bench": _bench(m, w)
 	elif w.kind == "grid": _grid(m, w, b)

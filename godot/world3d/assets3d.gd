@@ -217,18 +217,30 @@ static var _tree_mats := {}
 static func _tree_mat(kind: String, lod: int) -> Dictionary:
 	var mkey := "%s%d" % [kind, lod]
 	if _tree_mats.has(mkey): return _tree_mats[mkey]
+	var d := {}
+	if kind.begins_with("fir"):   # Quaternius pines (CC0, poly.pizza): their leaf cards, the scan's bark on the trunk so it sits beside the scanned broadleaf
+		var lf := StandardMaterial3D.new()
+		lf.albedo_texture = tex("tree_pine_leaf.png"); lf.vertex_color_use_as_albedo = true; lf.albedo_color = Color(0.62, 0.86, 0.80)
+		lf.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; lf.alpha_scissor_threshold = 0.4; lf.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+		lf.cull_mode = BaseMaterial3D.CULL_DISABLED; lf.roughness = 0.85; lf.backlight_enabled = true; lf.backlight = Color(0.12, 0.2, 0.14)
+		lf.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		var bk := StandardMaterial3D.new()
+		bk.albedo_texture = tex("tree_fir_trunk_a_albedo.jpg" if kind == "fir_a" else "tree_fir_trunk_b_albedo.jpg"); bk.uv1_triplanar = true; bk.uv1_scale = Vector3.ONE * 0.45
+		bk.albedo_color = Color(0.85, 0.8, 0.76); bk.roughness = 0.92; bk.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		d = {"Bark_NormalTree": bk, "Leaves_Pine": lf}
+		_tree_mats[mkey] = d; return d
 	var tw := StandardMaterial3D.new()
-	tw.albedo_texture = tex("tree_%s_atlas%d.png" % [kind, lod])   # baked from the scan's own needles or leaves, cluster by cluster (tools/blender/recut.py)
+	tw.albedo_texture = tex("tree_%s_atlas%d.png" % [kind, lod])   # baked from the scan's own leaves, cluster by cluster (tools/blender/recut.py)
 	tw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; tw.alpha_scissor_threshold = 0.32
 	tw.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
-	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(0.58, 0.74, 0.62) if kind.begins_with("fir") else Color(1.0, 1.0, 0.95)   # the baked colours are the scan's: a conifer is darker and bluer
+	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(1.0, 1.0, 0.95)
 	tw.backlight_enabled = true; tw.backlight = Color(0.30, 0.34, 0.22)
 	tw.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	var tr := StandardMaterial3D.new()
-	tr.albedo_texture = tex("tree_%s_albedo.jpg" % ("fir_trunk_a" if kind == "fir_a" else ("fir_trunk_b" if kind == "fir_b" else "broad_trunk")))
+	tr.albedo_texture = tex("tree_broad_trunk_albedo.jpg")
 	tr.vertex_color_use_as_albedo = true; tr.roughness = 0.9
 	tr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	var d := {"trunk": tr, "bark": tr, "twig": tw}
+	d = {"trunk": tr, "bark": tr, "twig": tw}
 	_tree_mats[mkey] = d; return d
 
 static var _tree_meshes := {}
@@ -236,41 +248,8 @@ static func tree_mesh(kind: String, lod: int) -> ArrayMesh:
 	var key := "%s%d" % [kind, lod]
 	if _tree_meshes.has(key): return _tree_meshes[key]
 	var am := merged("trees/%s_lod%d" % [kind, lod], _tree_mat(kind, lod))
-	if lod == 1: _add_core(am, kind, _trunk_h(kind))   # far: the dark mass of the wood; near, the cards sit on wood and the core would only show through
 	_tree_meshes[key] = am
 	return am
-
-## A dark solid inside the crown (tiered cones for a fir, an ellipsoid for the broadleaf): the foliage cards are a see-through spray on their
-## own; with a core behind them the tree reads as one dark mass, as a wood does at night from 100 m.
-static func _add_core(am: ArrayMesh, kind: String, h: float) -> void:
-	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var seg := 9
-	if kind.begins_with("fir"):
-		for t in 3:
-			var y0 := h * (0.10 + 0.22 * t); var y1 := h * (0.46 + 0.27 * t); var r0 := h * 0.20 * (1.0 - 0.28 * t)
-			for i in seg:
-				var a0 := TAU * float(i) / seg; var a1 := TAU * float(i + 1) / seg
-				var p0 := Vector3(cos(a0) * r0, y0, sin(a0) * r0); var p1 := Vector3(cos(a1) * r0, y0, sin(a1) * r0); var tip := Vector3(0, y1, 0)
-				_tri_out(st, p0, tip, p1, Vector3(cos((a0 + a1) * 0.5), r0 / (y1 - y0), sin((a0 + a1) * 0.5)).normalized())
-	else:
-		var c := Vector3(0, h * 0.8, 0); var rx := h * 0.42; var ry := h * 0.34; var rings := 5
-		for j in rings:
-			var b0 := PI * float(j) / rings; var b1 := PI * float(j + 1) / rings
-			for i in seg:
-				var a0 := TAU * float(i) / seg; var a1 := TAU * float(i + 1) / seg
-				var q := func(b: float, a: float) -> Vector3: return c + Vector3(sin(b) * cos(a) * rx, cos(b) * ry, sin(b) * sin(a) * rx)
-				var v00: Vector3 = q.call(b0, a0); var v01: Vector3 = q.call(b0, a1); var v10: Vector3 = q.call(b1, a0); var v11: Vector3 = q.call(b1, a1)
-				_tri_out(st, v00, v10, v11, ((v00 + v10 + v11) / 3.0 - c).normalized())
-				if j > 0: _tri_out(st, v00, v11, v01, ((v00 + v11 + v01) / 3.0 - c).normalized())
-	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.20, 0.33, 0.13); m.roughness = 1.0; m.vertex_color_use_as_albedo = true
-	var arr := st.commit().surface_get_arrays(0)
-	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr); am.surface_set_material(am.get_surface_count() - 1, m)
-
-## One triangle whose front side (Godot: clockwise) faces `out`; every vertex takes `out` as its normal.
-static func _tri_out(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, out: Vector3) -> void:
-	var g := -(b - a).cross(c - a)
-	if g.dot(out) < 0.0: var t := b; b = c; c = t
-	st.set_normal(out); st.add_vertex(a); st.set_normal(out); st.add_vertex(b); st.set_normal(out); st.add_vertex(c)
 
 ## Draws the forest as MultiMeshes in 96 m cells: LOD0 within `near` m of a cell's centre (high tier), LOD1 beyond (and everywhere on low).
 ## `conifer` and `broad` are [Transform3D] / [Color] lists as Bench3D._trees builds them for the procedural trees (unit-height scale in y).
@@ -314,8 +293,8 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 				mm.set_instance_color(i, Color(clampf(col.r / 1.2, 0.0, 1.0), clampf(col.g / 1.2, 0.0, 1.0), clampf(col.b / 1.2, 0.0, 1.0)))
 			var mi := MultiMeshInstance3D.new(); mi.name = "Forest_%s_L%d" % [kind, lod]; mi.multimesh = mm; root.add_child(mi)
 			if near > 0.0:
-				if lod == 0: mi.visibility_range_end = near + 40.0; mi.visibility_range_end_margin = 20.0; mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-				else: mi.visibility_range_begin = near + 20.0; mi.visibility_range_begin_margin = 20.0; mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+				if lod == 0: mi.visibility_range_end = near + 40.0; mi.visibility_range_end_margin = 20.0; mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+				else: mi.visibility_range_begin = near + 20.0; mi.visibility_range_begin_margin = 20.0; mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if (lod == 0 and quality == "high") else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## One LOD of a province wood as MultiMeshes in `cell` m cells, drawn between `vmin` and `vmax` m from the camera (dithered at both ends).
@@ -344,10 +323,10 @@ static func forest_lod(root: Node3D, kind: String, xf: Array, cols: Array, lod: 
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## Trunk height of a tree file (the cards reach a little beyond it): the unit the scene's tree scale is given in.
-static func _trunk_h(kind: String) -> float:
+static func _trunk_h(kind: String) -> float:   # the model's height (the scan's wood, or the whole pine)
 	var h := 1.0
 	for e in meshes("trees/%s_lod1" % kind):
-		if str(e.name) == "tr": h = maxf(h, (e.mesh as Mesh).get_aabb().size.y)
+		if kind.begins_with("fir") or str(e.name) == "tr": h = maxf(h, (e.mesh as Mesh).get_aabb().size.y)
 	return h
 
 # --------------------------------------------------------------------------------------------------------------------
