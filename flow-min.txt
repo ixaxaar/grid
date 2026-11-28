@@ -33,4 +33,4 @@ ticker_flow 10
 town_lights_truth 341
 tray_flow 94
 province_shed_truth 31
-vegetation_truth 20
+vegetation_truth 21

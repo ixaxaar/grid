@@ -17,7 +17,7 @@ func _split(parts: Array) -> Dictionary:
 		for t in p.tris: (wood if p.wood else fol).append(t)
 	return {"wood": wood, "fol": fol}
 
-func _mesh_tris(m: Mesh, xf: Transform3D, wood_of: Callable) -> Array:   # [{tris, wood}] per triangle class
+func _mesh_tris(m: Mesh, xf: Transform3D, wood_of: Callable, branch := false) -> Array:   # [{tris, wood}] per triangle class
 	var wood_t: Array = []; var fol_t: Array = []
 	for si in m.get_surface_count():
 		var a := m.surface_get_arrays(si)
@@ -31,7 +31,7 @@ func _mesh_tris(m: Mesh, xf: Transform3D, wood_of: Callable) -> Array:   # [{tri
 			var col := Color.WHITE if cols == null else (cols as PackedColorArray)[ix[t]]
 			if wood_of.call(si, col): wood_t.append(tri)
 			else: fol_t.append(tri)
-	return [{"tris": wood_t, "wood": true}, {"tris": fol_t, "wood": false}]
+	return [{"tris": wood_t, "wood": true, "branch": branch}, {"tris": fol_t, "wood": false}]
 
 static func _is_green(c: Color) -> bool: return c.g > c.r * 1.12 and c.g > c.b * 1.12
 
@@ -136,6 +136,33 @@ func floating(name: String, parts: Array) -> Array:
 			for cj in is_anchored.keys():
 				if _boxes_touch(fol, comps[ci], comps[cj], tol): is_anchored[ci] = true; grew = true; break
 	var bad := 0; var seen := 0
+	# branch pieces (objects bk): every vertex lies inside an anchored crown or hugs the trunk; a twig that ends outside the crown pokes out of it
+	var trunk_pts: Array = []
+	for p in parts:
+		if p.wood and not p.get("branch", false):
+			for t in p.tris: for e in 3: trunk_pts.append(t[e]); trunk_pts.append((t[e] as Vector3).lerp(t[(e + 1) % 3], 0.5))
+	var tgrid := {}
+	for q in trunk_pts:
+		var gk := Vector3i(floori(q.x / cell), floori(q.y / cell), floori(q.z / cell))
+		if not tgrid.has(gk): tgrid[gk] = []
+		tgrid[gk].append(q)
+	var near_trunk := func(p: Vector3) -> bool:
+		var g0 := Vector3i(floori(p.x / cell), floori(p.y / cell), floori(p.z / cell))
+		for dx in range(-1, 2): for dy in range(-1, 2): for dz in range(-1, 2):
+			var gk := g0 + Vector3i(dx, dy, dz)
+			if tgrid.has(gk): for q in tgrid[gk]: if (q as Vector3).distance_to(p) <= tol: return true
+		return false
+	var stray := 0; var bverts := 0
+	for p in parts:
+		if not (p.wood and p.get("branch", false)): continue
+		for t in p.tris:
+			for v in t:
+				bverts += 1
+				var ok: bool = near_trunk.call(v)
+				if not ok:
+					for cj in is_anchored.keys(): if _inside(v, fol, comps[cj]): ok = true; break
+				if not ok: stray += 1
+	if stray > 0: bad += 1; print("  %s: %d of %d branch vertices end outside the crown and away from the trunk" % [name, stray, bverts])
 	for ci in comps.size():
 		seen += 1
 		if solids.has(ci):
@@ -169,7 +196,7 @@ func _initialize() -> void:
 			var parts: Array = []
 			for e in Assets3D.meshes("trees/%s_lod%d" % [kind, lod]):
 				var is_wood: bool = str(e.name).begins_with("tr") or str(e.name).begins_with("bk")
-				var tr := _mesh_tris(e.mesh, e.xf, func(_si, _c): return is_wood)
+				var tr := _mesh_tris(e.mesh, e.xf, func(_si, _c): return is_wood, str(e.name).begins_with("bk"))
 				parts.append_array(tr)
 			subjects.append(["tree %s lod%d" % [kind, lod], parts])
 	var by_colour := func(_si, c: Color) -> bool: return not _is_green(c)
@@ -199,6 +226,10 @@ func _initialize() -> void:
 	var ctl2 := floating("control2", [{"tris": trunk, "wood": true}, {"tris": anchored_ball, "wood": false}])
 	checks += 1
 	if int(ctl2[0]) != 0: fails += 1; print("FAIL: the control crown sitting on the trunk must pass, got %d floating" % int(ctl2[0]))
+	var twig := [[Vector3(0.2, 3.0, 0), Vector3(0.9, 3.3, 0), Vector3(0.9, 3.35, 0.02)]]   # a branch sticking out of the crown ball (radius 0.6 at y 2.6)
+	var ctl3 := floating("control3", [{"tris": trunk, "wood": true}, {"tris": twig, "wood": true, "branch": true}, {"tris": anchored_ball, "wood": false}])
+	checks += 1
+	if int(ctl3[0]) != 1: fails += 1; print("FAIL: a branch that ends outside the crown must be caught, got %d" % int(ctl3[0]))
 	print("VEGETATION-TRUTH checks=%d islands=%d" % [checks, islands])
 	print("VEGETATION-TRUTH OK" if fails == 0 else "VEGETATION-TRUTH FAILED %d" % fails)
 	quit(0 if fails == 0 else 1)

@@ -71,8 +71,10 @@ def crown_arrays(rings,sectors):
         for k in range(rings+1): R[k]*=rnd.uniform(0.88,1.1,sectors)
     R=np.maximum(R,0.03*H)
     return zs,R,H
+PROFILE={}
 def crown_obj(rings,sectors,name):
     zs,R,H=crown_arrays(rings,sectors)
+    PROFILE['zs']=zs; PROFILE['R']=R; PROFILE['sectors']=sectors
     V=[];UV=[];F=[]
     for k in range(rings+1):
         for j in range(sectors):
@@ -99,6 +101,20 @@ def crown_obj(rings,sectors,name):
     bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT"); bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode="OBJECT")
     bpy.ops.object.shade_smooth()
     return o
+def trim_branches(o):
+    """Cut every piece of branch that is not inside the crown (or hugging the trunk): loose twigs poking out of the crown or hanging under it read as detached bits (1128c C17)."""
+    zs=PROFILE['zs']; R=PROFILE['R']; S=PROFILE['sectors']
+    def inside(co):
+        if co.z<zs[0] or co.z>zs[-1]: return False
+        k=min(len(zs)-2,max(0,int((co.z-zs[0])/(zs[-1]-zs[0])*(len(zs)-1))))
+        a=(math.atan2(co.y,co.x)+math.pi)/(2*math.pi)*S; j=int(a)%S
+        j2=(j+1)%S
+        return math.hypot(co.x,co.y)<0.8*min(R[k,j],R[k+1,j],R[k,j2],R[k+1,j2])
+    bm=bmesh.new(); bm.from_mesh(o.data)
+    bad=[f for f in bm.faces if not all(inside(v.co) or math.hypot(v.co.x,v.co.y)<0.28 for v in f.verts)]
+    bmesh.ops.delete(bm,geom=bad,context="FACES")
+    bmesh.ops.delete(bm,geom=[v for v in bm.verts if not v.link_faces],context="VERTS")
+    bm.to_mesh(o.data); bm.free()
 def build(lod):
     parts=[]
     t=to_obj(sub(lambda n:n in trunk_names),"tr","trunk"); decimate(t,tr0 if lod==0 else tr1); parts.append(t)
@@ -106,6 +122,7 @@ def build(lod):
     if lod==0 and bk0>0:
         b=to_obj(sub(lambda n:n in bark_names),"bk","bark"); decimate(b,bk0); parts.append(b); clean_normals(b)
     parts.append(crown_obj(rings0 if lod==0 else rings1, sec0 if lod==0 else sec1, "cd"))
+    if lod==0 and bk0>0: trim_branches(parts[1])
     zbase=min(v.co.z for v in parts[0].data.vertices)
     for p in parts:
         for v in p.data.vertices: v.co.z-=zbase
