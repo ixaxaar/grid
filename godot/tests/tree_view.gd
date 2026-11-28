@@ -19,7 +19,7 @@ func _initialize() -> void:
 	root.add_child(sun)
 	var ground := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(120, 120); ground.mesh = pm
 	var gm := StandardMaterial3D.new(); gm.albedo_color = Color(0.22, 0.34, 0.14); ground.material_override = gm; root.add_child(ground)
-	var kinds: Array = (OS.get_environment("CB_TREE_KINDS") if OS.get_environment("CB_TREE_KINDS") != "" else "fir_a,fir_b,broad").split(",")
+	var kinds: Array = (OS.get_environment("CB_TREE_KINDS") if OS.get_environment("CB_TREE_KINDS") != "" else "fir_a,fir_b,broad_a,broad_b,broad_c").split(",")
 	for i in kinds.size():
 		var at := Vector3((i - (kinds.size() - 1) * 0.5) * 8.5, 0, 0)
 		if str(kinds[i]).begins_with("glb:"):   # a model file as it comes (QA of candidate trees): scaled to 10 m
@@ -38,7 +38,7 @@ func _initialize() -> void:
 			continue
 		var mi := MeshInstance3D.new(); mi.mesh = Assets3D.tree_mesh(kinds[i], lod)
 		var s := 10.0 / Assets3D._trunk_h(kinds[i])
-		mi.transform = Transform3D(Basis().scaled(Vector3.ONE * s), at); root.add_child(mi)
+		mi.transform = Transform3D(Basis().scaled(Vector3(s * Assets3D.tree_wide(kinds[i]), s * Assets3D.tree_tall(kinds[i]), s * Assets3D.tree_wide(kinds[i]))), at); root.add_child(mi)
 	var cam := Camera3D.new(); cam.fov = 42.0; root.add_child(cam)
 	cam.look_at_from_position(Vector3(0, 4.5, dist), Vector3(0, 4.5, 0), Vector3.UP)
 	cam.current = true

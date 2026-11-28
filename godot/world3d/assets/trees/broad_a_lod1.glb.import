@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://dfjbpiejr3mc3"
-path="res://.godot/imported/broad_lod0.glb-9aca33e6bdd6bf8cb8519119eab0d84f.scn"
+uid="uid://dvh75r6gbl2c7"
+path="res://.godot/imported/broad_a_lod1.glb-4e76b7dfe788ae502b34a033c50f239d.scn"
 
 [deps]
 
-source_file="res://world3d/assets/trees/broad_lod0.glb"
-dest_files=["res://.godot/imported/broad_lod0.glb-9aca33e6bdd6bf8cb8519119eab0d84f.scn"]
+source_file="res://world3d/assets/trees/broad_a_lod1.glb"
+dest_files=["res://.godot/imported/broad_a_lod1.glb-4e76b7dfe788ae502b34a033c50f239d.scn"]
 
 [params]
 

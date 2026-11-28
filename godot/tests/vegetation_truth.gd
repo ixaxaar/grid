@@ -7,6 +7,7 @@ extends SceneTree
 ## hanging in the air) must FAIL the same check, so the check cannot pass by being blind.
 
 const WELD := 10000.0
+const CARD_HOPS := 2   # see floating(): cards anchored through the cards that touch them, at most two cards from the wood
 
 func _key(v: Vector3) -> Vector3i: return Vector3i(roundi(v.x * WELD), roundi(v.y * WELD), roundi(v.z * WELD))
 
@@ -135,7 +136,7 @@ func floating(name: String, parts: Array) -> Array:
 			if is_anchored.has(ci): continue
 			for cj in is_anchored.keys():
 				if _boxes_touch(fol, comps[ci], comps[cj], tol): is_anchored[ci] = true; grew = true; break
-	var bad := 0; var seen := 0
+	var bad := 0; var seen := 0; var reached := {}; var pend: Array = []
 	# branch pieces (objects bk): every vertex lies inside an anchored crown or hugs the trunk; a twig that ends outside the crown pokes out of it
 	var trunk_pts: Array = []
 	for p in parts:
@@ -196,7 +197,29 @@ func floating(name: String, parts: Array) -> Array:
 						if ok: break
 					if ok: break
 				if ok: break
-		if not ok: bad += 1
+		if ok: reached[ci] = true
+		else: pend.append(ci)
+	# The Quaternius crowns are clouds of leaf cards round a branch tip, the wood inside the cloud: a card the wood does not touch is anchored through the cards that touch it
+	# (a card within tol of an anchored card's box), at most CARD_HOPS cards from the wood. A cloud with no wood within that reach floats, as before.
+	var boxes := {}
+	for ci in pend:
+		var blo := Vector3(INF, INF, INF); var bhi := Vector3(-INF, -INF, -INF)
+		for i in comps[ci]: for v in fol[i]: blo = blo.min(v); bhi = bhi.max(v)
+		boxes[ci] = [blo, bhi]
+	for ci in reached.keys():
+		var blo := Vector3(INF, INF, INF); var bhi := Vector3(-INF, -INF, -INF)
+		for i in comps[ci]: for v in fol[i]: blo = blo.min(v); bhi = bhi.max(v)
+		boxes[ci] = [blo, bhi]
+	for hop in CARD_HOPS:
+		var got: Array = []
+		for ci in pend:
+			var a: Array = boxes[ci]
+			for cj in reached.keys():
+				var b: Array = boxes[cj]
+				if (a[0] as Vector3).x <= (b[1] as Vector3).x + tol and (a[1] as Vector3).x >= (b[0] as Vector3).x - tol and (a[0] as Vector3).y <= (b[1] as Vector3).y + tol and (a[1] as Vector3).y >= (b[0] as Vector3).y - tol and (a[0] as Vector3).z <= (b[1] as Vector3).z + tol and (a[1] as Vector3).z >= (b[0] as Vector3).z - tol:
+					got.append(ci); break
+		for ci in got: reached[ci] = true; pend.erase(ci)
+	bad += pend.size()
 	if bad > 0: print("  %s: %d of %d foliage islands float (tolerance %.2f m)" % [name, bad, seen, tol])
 	return [bad, seen]
 
@@ -214,7 +237,7 @@ func _boxes_touch(fol: Array, a: Array, b: Array, tol: float) -> bool:
 func _initialize() -> void:
 	var checks := 0; var fails := 0; var islands := 0
 	var subjects: Array = []   # [name, parts]
-	for kind in ["fir_a", "fir_b", "broad"]:
+	for kind in Assets3D.TREE_KINDS:
 		for lod in 2:
 			var parts: Array = []
 			for e in Assets3D.meshes("trees/%s_lod%d" % [kind, lod]):
@@ -236,8 +259,8 @@ func _initialize() -> void:
 		for p in s[1]: if not p.wood: fol_n += (p.tris as Array).size()
 		checks += 1
 		if fol_n == 0: fails += 1; print("FAIL: %s has no foliage triangles (classification broke)" % s[0])
-	# every kind and LOD carries its baked atlas, wood, stubs and cards, and the cards' UVs lie inside the atlas
-	for kind in ["fir_a", "fir_b", "broad"]:
+	# every kind and LOD has its bark and leaf materials, its leaf texture, and the cards' UVs lie inside the texture
+	for kind in Assets3D.TREE_KINDS:
 		for lod in 2:
 			checks += 1
 			var names := []; var uv_ok := true; var card_tris := 0; var mats_ok := true
@@ -246,15 +269,15 @@ func _initialize() -> void:
 				for si in (e.mesh as Mesh).get_surface_count():
 					var arr := (e.mesh as Mesh).surface_get_arrays(si)
 					var mn := Assets3D.mat_name(e.mesh, si)
-					if kind.begins_with("fir"): mats_ok = mats_ok and (mn == "Bark_NormalTree" or mn == "Leaves_Pine")
-					if str(e.name).begins_with("cd") or mn == "Leaves_Pine":
+					mats_ok = mats_ok and (mn == "Bark_NormalTree" or mn == "Leaves_Pine" or mn == "Leaves_NormalTree")
+					if mn == "Leaves_Pine" or mn == "Leaves_NormalTree":
 						for uv in (arr[Mesh.ARRAY_TEX_UV] as PackedVector2Array): if uv.x < -0.001 or uv.x > 1.001 or uv.y < -0.001 or uv.y > 1.001: uv_ok = false
 						card_tris += (arr[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
-			var tex_ok := FileAccess.file_exists("res://world3d/tex/tree_pine_leaf.png") if kind.begins_with("fir") else FileAccess.file_exists("res://world3d/tex/tree_%s_atlas%d.png" % [kind, lod])
-			var structure_ok: bool = (mats_ok and card_tris >= 100) if kind.begins_with("fir") else (names.has("tr") and names.has("bs") and names.has("cd") and card_tris >= 100)
+			var tex_ok := FileAccess.file_exists("res://world3d/tex/tree_pine_leaf.png" if kind.begins_with("fir") else "res://world3d/tex/tree_common_leaf.png") and FileAccess.file_exists("res://world3d/tex/tree_broad_trunk_albedo.jpg")
+			var structure_ok: bool = mats_ok and card_tris >= 100
 			if not (structure_ok and uv_ok and tex_ok): fails += 1; print("FAIL: tree %s lod%d: objects %s, materials ok %s, uv inside the atlas %s, texture %s, card triangles %d" % [kind, lod, str(names), str(mats_ok), str(uv_ok), str(tex_ok), card_tris])
 	# the far model is what the low tier draws everywhere: a triangle budget per tree
-	for kind in ["fir_a", "fir_b", "broad"]:
+	for kind in Assets3D.TREE_KINDS:
 		checks += 1
 		var tris := 0
 		for e in Assets3D.meshes("trees/%s_lod1" % kind): for si in (e.mesh as Mesh).get_surface_count(): tris += (e.mesh as Mesh).surface_get_arrays(si)[Mesh.ARRAY_INDEX].size() / 3
@@ -278,6 +301,11 @@ func _initialize() -> void:
 	var ctl3 := floating("control3", [{"tris": trunk, "wood": true}, {"tris": twig, "wood": true, "branch": true}, {"tris": anchored_ball, "wood": false}])
 	checks += 1
 	if int(ctl3[0]) != 1: fails += 1; print("FAIL: a branch that ends outside the crown must be caught, got %d" % int(ctl3[0]))
+	var chain: Array = []   # five cards in a row, each touching the next; the first stands on the trunk: the cards two hops out are anchored, the two beyond them float
+	for k in 5: chain.append([Vector3(0.0 + 0.95 * k, 1.0, 0), Vector3(0.9 + 0.95 * k, 1.0, 0), Vector3(0.45 + 0.95 * k, 2.0, 0)])   # a 0.05 m gap, so the cards do not weld into one island
+	var ctl4 := floating("control4", [{"tris": trunk, "wood": true}, {"tris": chain, "wood": false}])
+	checks += 1
+	if int(ctl4[0]) != 2: fails += 1; print("FAIL: a chain of five cards from the trunk must leave exactly the two beyond the hop limit floating, got %d" % int(ctl4[0]))
 	print("VEGETATION-TRUTH checks=%d islands=%d" % [checks, islands])
 	print("VEGETATION-TRUTH OK" if fails == 0 else "VEGETATION-TRUTH FAILED %d" % fails)
 	quit(0 if fails == 0 else 1)

@@ -539,18 +539,18 @@ func _forest_poll() -> void:
 
 func _place_forests(xc: Array, cc: Array, xb: Array, cb: Array, tmat: Material, con: Mesh, brd: Mesh) -> void:
 	var ve := (7000.0 if quality == "high" else 4500.0) * (1.6 if field is GenField else 1.0)
-	var kit := ResourceLoader.exists(Assets3D.DIR + "trees/broad_lod1.glb")
+	var kit := ResourceLoader.exists(Assets3D.DIR + "trees/broad_a_lod1.glb")
 	# three LODs: the CC0 photogrammetry trees cut in Blender (LOD0 about 4-8 k triangles near the camera, LOD1 800 beyond it), then the generated
 	# trees from 1.4 km out, where one is a few pixels; the lists are split by kind first (two firs, one broadleaf)
 	var far_from := 1400.0 if kit else 0.0
 	if kit:
-		var kinds := {"fir_a": [[], []], "fir_b": [[], []], "broad": [[], []]}
+		var kinds := {}
+		for tk in Assets3D.TREE_KINDS: kinds[tk] = [[], []]
 		for pass_i in 2:
 			var xs: Array = xc if pass_i == 0 else xb; var cs: Array = cc if pass_i == 0 else cb
 			for i in xs.size():
 				var o: Vector3 = (xs[i] as Transform3D).origin
-				var k := "broad"
-				if pass_i == 0: k = "fir_a" if (int(absf(o.x * 7.3 + o.z * 3.1)) % 3) == 0 else "fir_b"
+				var k := Assets3D.broad_kind(o.x, o.z) if pass_i == 1 else Assets3D.conifer_kind(o.x, o.z)
 				(kinds[k][0] as Array).append(xs[i]); (kinds[k][1] as Array).append(cs[i])
 		for k in kinds:
 			var l: Array = kinds[k]
@@ -825,11 +825,15 @@ func _build_layout() -> void:
 				gm.set_instance_color(k * 2 + q, Color(0.9 + 0.2 * _h(k, q, 614), 1.0, 0.85))
 		var gmi := MultiMeshInstance3D.new(); gmi.multimesh = gm; var tm3 := Look3D.tree_mat(); gmi.material_override = tm3
 		_root_infra.add_child(gmi)
-		if ResourceLoader.exists(Assets3D.DIR + "trees/broad_lod1.glb"):   # the same garden trees as the CC0 broadleaf model near the camera; the generated blob only beyond 900 m
-			var gx: Array = []; var gc: Array = []
-			for i in gm.instance_count: gx.append(gm.get_instance_transform(i)); gc.append(gm.get_instance_color(i))
-			if quality != "low": Assets3D.forest_lod(_root_infra, "broad", gx, gc, 0, 160.0, 0.0, 190.0, quality == "high")
-			Assets3D.forest_lod(_root_infra, "broad", gx, gc, 1, 320.0, 150.0 if quality != "low" else 0.0, 900.0, false)
+		if ResourceLoader.exists(Assets3D.DIR + "trees/broad_a_lod1.glb"):   # the same garden trees as the CC0 broadleaf model near the camera; the generated blob only beyond 900 m
+			var gx := {}; var gc := {}
+			for bk in Assets3D.BROAD_KINDS: gx[bk] = []; gc[bk] = []
+			for i in gm.instance_count:
+				var gt := gm.get_instance_transform(i); var bk := Assets3D.broad_kind(gt.origin.x, gt.origin.z)
+				(gx[bk] as Array).append(gt); (gc[bk] as Array).append(gm.get_instance_color(i))
+			for bk in Assets3D.BROAD_KINDS:
+				if quality != "low": Assets3D.forest_lod(_root_infra, bk, gx[bk], gc[bk], 0, 160.0, 0.0, 190.0, quality == "high")
+				Assets3D.forest_lod(_root_infra, bk, gx[bk], gc[bk], 1, 320.0, 150.0 if quality != "low" else 0.0, 900.0, false)
 			gmi.visibility_range_begin = 850.0; gmi.visibility_range_begin_margin = 80.0; gmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	_tp("houses")
 	if _perf_off.has("lamps"): pass

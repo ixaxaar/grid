@@ -2,9 +2,9 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bx6tn58o5t1b"
-path.s3tc="res://.godot/imported/tree_fir_trunk_b_albedo.jpg-95e897a4187a5988c0ac7c13fb2bb695.s3tc.ctex"
-path.etc2="res://.godot/imported/tree_fir_trunk_b_albedo.jpg-95e897a4187a5988c0ac7c13fb2bb695.etc2.ctex"
+uid="uid://bfpcaie4upicb"
+path.s3tc="res://.godot/imported/tree_common_leaf.png-496aaa89802dd2acfb1c9eec147b8692.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_common_leaf.png-496aaa89802dd2acfb1c9eec147b8692.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,8 +12,8 @@ metadata={
 
 [deps]
 
-source_file="res://world3d/tex/tree_fir_trunk_b_albedo.jpg"
-dest_files=["res://.godot/imported/tree_fir_trunk_b_albedo.jpg-95e897a4187a5988c0ac7c13fb2bb695.s3tc.ctex", "res://.godot/imported/tree_fir_trunk_b_albedo.jpg-95e897a4187a5988c0ac7c13fb2bb695.etc2.ctex"]
+source_file="res://world3d/tex/tree_common_leaf.png"
+dest_files=["res://.godot/imported/tree_common_leaf.png-496aaa89802dd2acfb1c9eec147b8692.s3tc.ctex", "res://.godot/imported/tree_common_leaf.png-496aaa89802dd2acfb1c9eec147b8692.etc2.ctex"]
 
 [params]
 

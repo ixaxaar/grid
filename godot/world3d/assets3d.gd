@@ -211,36 +211,39 @@ static func kit_house_mats(palette := "house_palette_albedo.png", grid := false)
 	return out
 
 # --------------------------------------------------------------------------------------------------------------------
-# Trees (Poly Haven fir_tree_01 and tree_small_02, alpha-card LODs cut in Blender, see docs/ASSETS.md)
+# Trees: one family. Quaternius' Stylized Nature MegaKit (CC0, poly.pizza): two pines and three common (broadleaf) trees, one pack, one leaf style. Their leaf
+# cards are kept; one scanned bark (Poly Haven, triplanar) sits on every trunk, and one hue range of green runs through all five with three tones.
+# tools/blender/quat.py takes the textures out, fixes normals, cuts the pine's bare lower branches and makes LOD1 by collapse decimation. See docs/ASSETS.md.
 # --------------------------------------------------------------------------------------------------------------------
+const TREE_KINDS := ["fir_a", "fir_b", "broad_a", "broad_b", "broad_c"]
+const BROAD_KINDS := ["broad_a", "broad_b", "broad_c"]
+## Leaf tint per kind: the pack's leaf textures are yellow-green with no blue, so the tint sets the tone and keeps the hue (R/G about 0.45-0.5 on every kind):
+## deep (the pines), mid (broad a, c), light (broad b).
+const TREE_TONES := {"fir_a": Color(0.62, 0.86, 0.8), "fir_b": Color(0.62, 0.86, 0.8), "broad_a": Color(0.56, 0.82, 0.8), "broad_b": Color(0.70, 1.0, 0.8), "broad_c": Color(0.48, 0.72, 0.8)}
+## Which broadleaf stands at a place: a stable hash of the position, so a wood mixes the three.
+static func broad_kind(x: float, z: float) -> String: return BROAD_KINDS[int(absf(x * 5.7 + z * 11.3)) % 3]
+static func conifer_kind(x: float, z: float) -> String: return "fir_a" if (int(absf(x * 7.3 + z * 3.1)) % 3) == 0 else "fir_b"
+
 static var _tree_mats := {}
+## The common trees are tall and narrow (a 4 m crown on 9 m); a wood of them read thin beside the scan they replace, so they stand 1.7 times wider than the model (crown and trunk).
+const BROAD_WIDE := 1.7
+const BROAD_TALL := 1.2
+static func tree_wide(kind: String) -> float: return BROAD_WIDE if kind.begins_with("broad") else 1.0
+static func tree_tall(kind: String) -> float: return BROAD_TALL if kind.begins_with("broad") else 1.0
+
 static func _tree_mat(kind: String, lod: int) -> Dictionary:
 	var mkey := "%s%d" % [kind, lod]
 	if _tree_mats.has(mkey): return _tree_mats[mkey]
-	var d := {}
-	if kind.begins_with("fir"):   # Quaternius pines (CC0, poly.pizza): their leaf cards, the scan's bark on the trunk so it sits beside the scanned broadleaf
-		var lf := StandardMaterial3D.new()
-		lf.albedo_texture = tex("tree_pine_leaf.png"); lf.vertex_color_use_as_albedo = true; lf.albedo_color = Color(0.62, 0.86, 0.80)
-		lf.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; lf.alpha_scissor_threshold = 0.4; lf.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
-		lf.cull_mode = BaseMaterial3D.CULL_DISABLED; lf.roughness = 0.85; lf.backlight_enabled = true; lf.backlight = Color(0.12, 0.2, 0.14)
-		lf.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-		var bk := StandardMaterial3D.new()
-		bk.albedo_texture = tex("tree_fir_trunk_a_albedo.jpg" if kind == "fir_a" else "tree_fir_trunk_b_albedo.jpg"); bk.uv1_triplanar = true; bk.uv1_scale = Vector3.ONE * 0.45
-		bk.albedo_color = Color(0.85, 0.8, 0.76); bk.roughness = 0.92; bk.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-		d = {"Bark_NormalTree": bk, "Leaves_Pine": lf}
-		_tree_mats[mkey] = d; return d
-	var tw := StandardMaterial3D.new()
-	tw.albedo_texture = tex("tree_%s_atlas%d.png" % [kind, lod])   # baked from the scan's own leaves, cluster by cluster (tools/blender/recut.py)
-	tw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; tw.alpha_scissor_threshold = 0.32
-	tw.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
-	tw.cull_mode = BaseMaterial3D.CULL_DISABLED; tw.vertex_color_use_as_albedo = true; tw.roughness = 0.85; tw.albedo_color = Color(1.0, 1.0, 0.95)
-	tw.backlight_enabled = true; tw.backlight = Color(0.30, 0.34, 0.22)
-	tw.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	var tr := StandardMaterial3D.new()
-	tr.albedo_texture = tex("tree_broad_trunk_albedo.jpg")
-	tr.vertex_color_use_as_albedo = true; tr.roughness = 0.9
-	tr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	d = {"trunk": tr, "bark": tr, "twig": tw}
+	var pine := kind.begins_with("fir")
+	var lf := StandardMaterial3D.new()
+	lf.albedo_texture = tex("tree_pine_leaf.png" if pine else "tree_common_leaf.png"); lf.vertex_color_use_as_albedo = true; lf.albedo_color = TREE_TONES[kind]
+	lf.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR; lf.alpha_scissor_threshold = 0.4; lf.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+	lf.cull_mode = BaseMaterial3D.CULL_DISABLED; lf.roughness = 0.85; lf.backlight_enabled = true; lf.backlight = Color(0.12, 0.2, 0.14)
+	lf.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	var bk := StandardMaterial3D.new()
+	bk.albedo_texture = tex("tree_broad_trunk_albedo.jpg"); bk.uv1_triplanar = true; bk.uv1_scale = Vector3.ONE * 0.45
+	bk.albedo_color = Color(0.85, 0.8, 0.76); bk.roughness = 0.92; bk.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	var d := {"Bark_NormalTree": bk, "Leaves_Pine" if pine else "Leaves_NormalTree": lf}
 	_tree_mats[mkey] = d; return d
 
 static var _tree_meshes := {}
@@ -260,8 +263,7 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 		var xf: Array = cx if pass_i == 0 else bx; var cols: Array = cc if pass_i == 0 else bc
 		for i in xf.size():
 			var t: Transform3D = xf[i]
-			var kind := "broad"
-			if pass_i == 0: kind = "fir_a" if (int(absf(t.origin.x * 7.3 + t.origin.z * 3.1)) % 3) == 0 else "fir_b"
+			var kind := broad_kind(t.origin.x, t.origin.z) if pass_i == 1 else conifer_kind(t.origin.x, t.origin.z)
 			var kt := [[t, cols[i]]]
 			if quality != "low" and gy.is_valid():   # a second tree beside it: the wood is massed, not a scatter
 				var h := absf(sin(t.origin.x * 12.9898 + t.origin.z * 78.233)) * TAU
@@ -275,7 +277,7 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 				var g2: Dictionary = groups[key2]
 				(g2.xf as Array).append(tt); (g2.col as Array).append(kk[1]); g2.c += tt.origin
 	var heights := {}
-	for k in ["fir_a", "fir_b", "broad"]:
+	for k in TREE_KINDS:
 		heights[k] = _trunk_h(k)
 	for key in groups:
 		var g: Dictionary = groups[key]; var n: int = (g.xf as Array).size(); var c: Vector3 = g.c / float(n)
@@ -288,7 +290,8 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 			for i in n:
 				var t: Transform3D = (g.xf as Array)[i]
 				var s: float = 1.0 / h
-				mm.set_instance_transform(i, Transform3D(t.basis.scaled_local(Vector3(s, s, s)), t.origin))
+				var w := tree_wide(kind)
+				mm.set_instance_transform(i, Transform3D(t.basis.scaled_local(Vector3(s * w, s * tree_tall(kind), s * w)), t.origin))
 				var col: Color = (g.col as Array)[i]
 				mm.set_instance_color(i, Color(clampf(col.r / 1.2, 0.0, 1.0), clampf(col.g / 1.2, 0.0, 1.0), clampf(col.b / 1.2, 0.0, 1.0)))
 			var mi := MultiMeshInstance3D.new(); mi.name = "Forest_%s_L%d" % [kind, lod]; mi.multimesh = mm; root.add_child(mi)
@@ -298,7 +301,7 @@ static func trees(root: Node3D, cx: Array, cc: Array, bx: Array, bc: Array, qual
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if (lod == 0 and quality == "high") else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## One LOD of a province wood as MultiMeshes in `cell` m cells, drawn between `vmin` and `vmax` m from the camera (dithered at both ends).
-## `xf` carries the tree's height in its basis scale, as Province3D's procedural trees do; `kind` is "fir_a", "fir_b" or "broad".
+## `xf` carries the tree's height in its basis scale, as Province3D's procedural trees do; `kind` is one of TREE_KINDS.
 static func forest_lod(root: Node3D, kind: String, xf: Array, cols: Array, lod: int, cell: float, vmin: float, vmax: float, shadow: bool) -> void:
 	var groups := {}
 	for i in xf.size():
@@ -313,7 +316,7 @@ static func forest_lod(root: Node3D, kind: String, xf: Array, cols: Array, lod: 
 		var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_colors = true; mm.mesh = mesh; mm.instance_count = ids.size()
 		for q in ids.size():
 			var t: Transform3D = xf[ids[q]]
-			mm.set_instance_transform(q, Transform3D(t.basis.scaled_local(Vector3.ONE / h), t.origin))
+			mm.set_instance_transform(q, Transform3D(t.basis.scaled_local(Vector3(tree_wide(kind), tree_tall(kind), tree_wide(kind)) / h), t.origin))
 			var c: Color = cols[ids[q]]
 			mm.set_instance_color(q, Color(clampf(c.r / 1.2, 0.0, 1.0), clampf(c.g / 1.2, 0.0, 1.0), clampf(c.b / 1.2, 0.0, 1.0)))
 		var mi := MultiMeshInstance3D.new(); mi.name = "Wood_%s_L%d_%d_%d" % [kind, lod, key.x, key.y]; mi.multimesh = mm; root.add_child(mi)
@@ -323,10 +326,9 @@ static func forest_lod(root: Node3D, kind: String, xf: Array, cols: Array, lod: 
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## Trunk height of a tree file (the cards reach a little beyond it): the unit the scene's tree scale is given in.
-static func _trunk_h(kind: String) -> float:   # the model's height (the scan's wood, or the whole pine)
+static func _trunk_h(kind: String) -> float:   # the model's height: the whole tree, crown included
 	var h := 1.0
-	for e in meshes("trees/%s_lod1" % kind):
-		if kind.begins_with("fir") or str(e.name) == "tr": h = maxf(h, (e.mesh as Mesh).get_aabb().size.y)
+	for e in meshes("trees/%s_lod1" % kind): h = maxf(h, (e.mesh as Mesh).get_aabb().size.y)
 	return h
 
 # --------------------------------------------------------------------------------------------------------------------
