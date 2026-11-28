@@ -63,6 +63,12 @@ func _initialize() -> void:
 	T.check(ShiftReport.held_minute(720.0, false, true, true, true) == 720.0, "no report open: no hold")
 	T.check(ShiftReport.held_minute(1400.0, true, true, false, true) == 1400.0, "the night itself is left alone")
 	T.check(p.report_focus(), "the report frames the shed city")
+	# the edge of the dead half: a glowing line on every boundary between served and shed sectors, built once the wave has passed
+	var bounds := Province3D.shed_boundaries(Array(city.energies), true, float(p._town_geo.B3.rot))
+	T.check(bounds.size() >= 1 and bounds.size() % 2 == 0 or bounds.size() == 1, "L17: the shed city has %d boundary line(s) between served and shed sectors" % bounds.size())
+	T.check(p._edge_root != null and p._edge_root.get_node_or_null("Edge_B3") != null and p._edge_root.get_node("Edge_B3").get_child_count() == bounds.size(), "the boundary lines are drawn (one strip per boundary)")
+	T.check(Province3D.shed_boundaries([1.0, 1.0, 1.0], true, 0.0).is_empty() and Province3D.shed_boundaries([0.0, 0.0], true, 0.0).is_empty() and Province3D.shed_boundaries([1.0, 0.0, 1.0], false, 0.0).is_empty(), "no boundary in a fully served, fully shed or dead town")
+	T.check(Province3D.shed_boundaries([1.0, 1.0, 0.0, 0.0], true, 0.0).size() == 2, "half the sectors shed: two boundaries")
 	p.queue_free()
 	# 3. WO-16: the evening-peak preview changes the scene's minute only
 	T.level("L16")

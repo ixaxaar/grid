@@ -53,6 +53,8 @@ var _perf_off: PackedStringArray = OS.get_environment("CB_PERF_OFF").split(",") 
 var _town_geo := {}              # town id -> {c: Vector2 centre (m), rot: float main-street angle, cnt: int energy sectors}
 var _subst := {}                 # town id -> {p: Vector3 yard centre, dir: Vector2 unit vector from the town towards the incoming transmission line}
 var _towers := {}                # line id -> PackedVector3Array of tower bases (the geometry a truth test reads; a headless MultiMesh keeps no transforms)
+var _edge_root: Node3D           # the glowing line along each boundary between served and shed sectors of a live town
+var _edge_sig := {}              # town id -> the boundaries drawn (angles), so a mesh is built only when they change
 var _warn: Array = []            # red warning lights on the yard gantries: blink at night
 var _warn_l: Array = []          # red warning lights on the tower tops
 var _night_lights: Array = []    # 1.19: works floodlights: on at night
@@ -640,7 +642,8 @@ func _build_layout() -> void:
 	for c in _root_infra.get_children(): c.queue_free()
 	_house_mm.clear(); _house_map.clear(); _town_lamps.clear(); _yard_lights.clear(); _battery = {}; _lighthouse = {}; _unit_lights.clear()
 	_town_inst.clear(); _town_lampmm.clear(); _wave.clear(); _warn.clear(); _night_lights.clear(); _lamp_mats.clear()
-	_town_geo.clear(); _subst.clear()
+	_town_geo.clear(); _subst.clear(); _edge_sig.clear()
+	if _edge_root != null: _edge_root.queue_free(); _edge_root = null
 	var hmat := ShaderMaterial.new(); hmat.shader = load("res://world3d/shaders/house.gdshader"); _hmat = hmat
 	hmat.set_shader_parameter("roof_far", PackedVector3Array(Assets3D.ROOF_TINTS_FAR))
 	var house := Props3D.house(); var block := Props3D.block()
@@ -665,7 +668,10 @@ func _build_layout() -> void:
 				places.append([bp.x, bp.y, 16.0 + 6.0 * _h(k, cnt, 643), 14.0 + 5.0 * _h(k, cnt, 644), hh, a + PI * 0.5, tid, int(fposmod(a - float(cc[2]), TAU) / TAU * cnt) % cnt, true, 0.1 + 0.2 * _h(k, cnt, 645)])
 		var ncount := {}
 		for t in model.towns: ncount[str(t.id)] = maxi(1, int(t.get("count", 1)))
-		for cc in tg.centres: _town_geo[str(cc[1])] = {"c": cc[0], "rot": float(cc[2]), "cnt": mini(int(ncount.get(str(cc[1]), 1)), 64)}   # each town's centre, main-street angle and energy sectors
+		for ci in tg.centres.size():
+			var cc: Array = tg.centres[ci]
+			var rr := float((field as GenField).towns[ci].r) * 1.45 if field is GenField and ci < (field as GenField).towns.size() else 600.0
+			_town_geo[str(cc[1])] = {"c": cc[0], "rot": float(cc[2]), "cnt": mini(int(ncount.get(str(cc[1]), 1)), 64), "r": maxf(rr, 300.0)}   # each town's centre, main-street angle, energy sectors and edge radius
 		_gen_substations(tg.centres)
 		var pads: Array = []   # 1128c (audit: houses stood inside the WO-22 plant yard): [centre, radius]
 		for u in model.get("units", []):
@@ -1748,7 +1754,56 @@ func _run_waves() -> void:
 				var sx: int = (lm[4] as PackedInt32Array)[k]
 				var served := live and (sx < 0 or en.size() == 0 or en[sx % en.size()] > 0.0)   # a shed sector's lamps go dark with its houses
 				(lm[0] as MultiMesh).set_instance_transform(k, xf if served else Transform3D(Basis().scaled(Vector3.ONE * 0.001), xf.origin))
-		if front > 1.2: w.done = true
+		if front > 1.2:
+			w.done = true
+			_sync_shed_edges()
+
+## C21 (WO-17 report): where the lights stop. A live town with both served and shed sectors gets a glowing dashed line on every boundary between them,
+## from the square out to the edge of the town, once the wave of switching has passed (the line follows the lamps and windows, never leads them).
+const EDGE_W := 7.0
+func _sync_shed_edges() -> void:
+	if _town_geo.is_empty(): return
+	if _edge_root == null: _edge_root = Node3D.new(); _edge_root.name = "ShedEdges"; add_child(_edge_root)
+	for t in model.towns:
+		var id := str(t.id)
+		if not _town_geo.has(id): continue
+		if _wave.has(id) and not bool(_wave[id].done): continue
+		var en: Array = Array(t.get("energies", []))
+		var bounds: Array = shed_boundaries(en, float(t.get("v", 0.0)) > 0.0, float(_town_geo[id].rot))
+		var sig := str(bounds)
+		if sig == str(_edge_sig.get(id, "[]")): continue
+		_edge_sig[id] = sig
+		var old := _edge_root.get_node_or_null("Edge_" + id)
+		if old != null: old.queue_free()
+		if bounds.is_empty(): continue
+		var g: Dictionary = _town_geo[id]; var c: Vector2 = g.c; var n3 := Node3D.new(); n3.name = "Edge_" + id; _edge_root.add_child(n3)
+		for a in bounds:
+			var d := Vector2(cos(float(a)), sin(float(a))); var nrm := Vector2(-d.y, d.x) * (EDGE_W * 0.5)
+			var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			var len := float(g.r); var steps := int(len / 22.0); var prev := PackedVector3Array()
+			for k in range(steps + 1):
+				var p := c + d * (len * float(k) / float(steps)); var u := len * float(k) / float(steps) / 44.0
+				var l3 := Vector3(p.x - nrm.x, ground(p.x - nrm.x, p.y - nrm.y) + 1.4, p.y - nrm.y); var r3 := Vector3(p.x + nrm.x, ground(p.x + nrm.x, p.y + nrm.y) + 1.4, p.y + nrm.y)
+				if not prev.is_empty():
+					st.set_uv(Vector2(u - 22.0 / 44.0, 0)); st.add_vertex(prev[0]); st.set_uv(Vector2(u - 22.0 / 44.0, 1)); st.add_vertex(prev[1]); st.set_uv(Vector2(u, 0)); st.add_vertex(l3)
+					st.set_uv(Vector2(u - 22.0 / 44.0, 1)); st.add_vertex(prev[1]); st.set_uv(Vector2(u, 1)); st.add_vertex(r3); st.set_uv(Vector2(u, 0)); st.add_vertex(l3)
+				prev = PackedVector3Array([l3, r3])
+			var mi := MeshInstance3D.new(); mi.mesh = st.commit(); mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; mi.extra_cull_margin = 50.0
+			var em := _glow_mat(Color(0.55, 0.86, 1.0), 1.7, 0.18); (em as ShaderMaterial).set_shader_parameter("pulse_depth", 0.85); mi.material_override = em
+			n3.add_child(mi)
+
+## The angles (radians) of the lines between served and shed sectors of a live town: sector k covers [rot + k * TAU / n, rot + (k + 1) * TAU / n).
+static func shed_boundaries(en: Array, live: bool, rot: float) -> Array:
+	var out: Array = []
+	if not live or en.size() < 2: return out
+	var any_shed := false; var any_live := false
+	for e in en:
+		if float(e) <= 0.0: any_shed = true
+		else: any_live = true
+	if not (any_shed and any_live): return out
+	for k in en.size():
+		if (float(en[k]) > 0.0) != (float(en[(k + 1) % en.size()]) > 0.0): out.append(snappedf(rot + float(k + 1) * TAU / float(en.size()), 0.0001))
+	return out
 
 func _place_trawler(mn: float) -> void:
 	if _trawler == null or _cable.is_empty(): if _trawler != null: _trawler.visible = false; return
