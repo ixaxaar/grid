@@ -245,8 +245,14 @@ func _draw_panel_body() -> void:
 	var y := inner.position.y + 134.0
 	var checks := [[T("C4_CHK_NEUTRAL") % [_f(float(q.iNpct), 1), WorkOrder.num(float(q.iNmaxPct))], bool(q.pass.neutral)], [T("C4_CHK_VOLTS"), bool(q.pass.volts)], [T("C4_CHK_RATING") % [_f(float(q.iN), 0), int(q.neutral.ampacityA)], bool(q.pass.rating)]]
 	var x := inner.position.x
-	for c in checks:
+	var right := inner.end.x - 250.0   # QA 1128c Q03: the price tag sits bottom right; a check that would run under it starts a line above
+	var ws: Array = checks.map(func(c): return mono.get_string_size(("✓ " if c[1] else "✗ ") + str(c[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, GridTheme.fs(11)).x + 28.0)
+	var total: float = ws.reduce(func(a, b): return a + b, 0.0)
+	if x + total > right: y -= 20.0
+	for i in checks.size():
+		var c: Array = checks[i]
 		var ct := ("✓ " if c[1] else "✗ ") + str(c[0])
+		if x + float(ws[i]) - 28.0 > right and x > inner.position.x: x = inner.position.x; y += 20.0
 		_text(mono, 11, Vector2(x, y), ct, _good(bool(c[1])))
-		x += mono.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, GridTheme.fs(11)).x + 28.0   # each check starts after the one before it
+		x += float(ws[i])   # each check starts after the one before it
 	if q.fail != null and not bool(q.done): pass

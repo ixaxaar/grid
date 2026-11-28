@@ -34,7 +34,12 @@ func _press(h: Dictionary, _p: Vector2) -> void:
 
 func _draw_panel_body() -> void:
 	var inner := Rect2(panel.position + Vector2(12.0, 8.0), panel.size - Vector2(24.0, 16.0))
-	_text(_semi(), 10, inner.position + Vector2(0, 14), "%s  |  %s  |  %s  |  %s" % [T("C7_BREAKERS"), T("C7_COUPLER_CAP"), T("C7_REACTOR_CAP"), T("C7_XFMR_CAP")], Color(GridTheme.TEXT, 0.65))
+	var caps := [T("C7_BREAKERS"), T("C7_COUPLER_CAP"), T("C7_REACTOR_CAP"), T("C7_XFMR_CAP")]
+	var cap := "%s  |  %s  |  %s  |  %s" % caps
+	var fz := GridText.floor_size(self, GridTheme.fs(10)) if _look3() else GridTheme.fs(10)
+	if _semi().get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x > inner.size.x: cap = "%s | %s | %s | %s" % caps   # QA 1128c Q03: at 1280 px the joined caption ran under the card edge
+	if _semi().get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x > inner.size.x: cap = cap.replace(" (kA, each)", " (kA)").replace("BUS-SECTION ", "")
+	_text(_semi(), 10, inner.position + Vector2(0, 14), cap, Color(GridTheme.TEXT, 0.65))
 	_text(_semi(), 11, inner.position + Vector2(0, 104), T("C7_PREDICT_KA"), GridTheme.SODIUM)
 	_text(_mono(), 12, inner.position + Vector2(392, 104), T("C7_UNIT_kA"), Color(GridTheme.TEXT, 0.8))
 	if _revealed():
