@@ -45,6 +45,15 @@ each licence page is checked before commit; every file goes into docs/ASSETS.md 
 - Before the pass: playtest regression sweep (one helper) closed and committed.
 
 ## Status (latest first)
+- 11-28 late: ASSET PASS BENCHMARK WO-23 at 7 (art director, round 2, 8c412d7). Round 1 (10fee78) stayed 6: houses +1,
+  decimated firs -1. Round 2: dark tree cores under the cards, every estate light on the estate supply (blackout glints
+  were window pools dropped by Kit3D's weak material refs), tighter frame, Kenney people and car, lit hall windows.
+  Open on WO-23 for a solid 7 to 8: people about 2x scale, in the door and lamp pools, and still visible in the
+  blackout; headlight cones on the asphalt; gardens, hedges and driveways; a faint moon fill so the dark houses keep
+  their form; an orange core in the smoke (the ember is not visible); the covered car reads as a pale ghost box; grey
+  bare trees at the left edge. Low tier on L23: 60 fps with one 470 ms stall per run (also 110 ms before the pass), cause
+  not found. Repo: about 20 MB of assets added so far.
+  Next: WO-16/17 province benchmark (day and night), then roll out by family (ch7 sites, bench, bay, province).
 - Art director (Sigrid) per-job scores: round 1 on sweep 4 (6a97062) mean 3.89, 0 of 37 at 7; round 2 on sweep 5
   (ca1f8e0) mean 4.38, 0 of 37 at 7. Highest: L01, L10, L19, L23 at 6. Lowest: L14, L16, L18, L22, L24, L29, L30, L35, L36 at 3.
   Shared causes still open (her ranking): people and lit towns with a visible blackout; house textures and window bloom;
