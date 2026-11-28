@@ -1,7 +1,7 @@
 # GRID status (handoff, 2026-11-10 ~09:20)
 
 Plan: docs/BUILD-PLAN.md. Decisions/deviations: docs/DECISIONS.md (read #5-#11). Program log: ../status/grid.md.
-Verify: `pnpm typecheck && ./node_modules/.bin/vitest run` → tsc clean, **29 files / 305 tests green** at handoff. CI (ci.yml) green on push.
+Verify: `pnpm typecheck && ./node_modules/.bin/vitest run` → tsc clean, **29 files / 305 tests green** at handoff. Tests run locally only (`make test`, `make flows`); GitHub Actions only build releases (owner, 11-28).
 
 ## Milestone: M0 done except the phone gate; M1 ≈ 60 %.
 ### Done (evidence = tests in the named folders)
