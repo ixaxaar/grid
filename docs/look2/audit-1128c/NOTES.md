@@ -58,6 +58,18 @@ each licence page is checked before commit; every file goes into docs/ASSETS.md 
 6. NOTES current after each family; commit and push per family. Stop to ask only if a benchmark fails 7 after two rounds.
 
 ## Status (latest first)
+- 11-28 late night: STOPPED AT THE GATE (manager rule: a benchmark under 7 after two rounds). Province round 2
+  (ffc06a5, b2e55b9): WO-17 job 6 (noon 5, night 7, report 5); WO-16 job 5 (day 4, night 6, report 6). Owner on look6:
+  "a cursory look at the graphics currently look gorgeous" (asset direction confirmed, keep the style).
+  What blocks 7: (1) WO-17 report: shed sectors shown by grey roofs, but grey is also a healthy roof tint (bug, P01);
+  needs a signal no healthy house has (cool shadow on the dead sectors with the served half in sun, or live/dead
+  feeders drawn) and the camera on the boundary. (2) WO-17 noon: olive grade (grass texture and ochre fields), chimney
+  as focal point instead of the city substation, camera high. (3) WO-16 report camera: plant, red T7 and B4 not in one
+  frame. (4) WO-16 day map: town cores have no silhouette at map height, lines thin and not load-coloured at the opening,
+  plant small and dull; or open at the evening peak (an engine/level decision, not mine). Also: core towers blown
+  to white at night; "lines thicken with loading" not visible at 69 %.
+  Art director's rollout advice: roll out the lamps, halos and engine-driven windows now; not the grey-roof cue.
+  Low tier L16 45-53 fps (target 60, cost not found; machine at load 20 during measurement).
 - 11-28 late (Kofi): province round 2 (shots *-r2 in assets-province/). TownGen placed almost no street lamps (its 34 m spacing never fit the 22 m street pieces: 6 lamps in the L17 town); now one per piece. Lamps and aircraft/flood beacons are billboard halos (lamp_glow.gdshader) with road pools (not on low), one instance per lamp, dark with their energy sector. Shed buildings (engine: town live, building energy 0) go cool and grey by day (instance .b), dark at night; report_focus frames a shed town. Core of tall blocks per generated town, house variety by position, 3 of 4 houses and a quarter of the lamps on low. Not done: the L16 day terrain still reads olive (the grass texture itself; a calmer field plot made it flatter, reverted); low-tier fps was measured with the machine at load 20, so read it as 45-53.
 - 11-28 night: PROVINCE BENCHMARK round 1 (81dfa52, 3bdd695; Kofi): art director WO-17 4 -> 5 (report 4, night 5),
   WO-16 3 -> 3 (night 4). Near houses better; far towns a salmon smear; no street lights; WO-17 report shows no shed;
